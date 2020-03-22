@@ -9,7 +9,12 @@ opt-level = 'z'  # Optimize for size.
 lto = true
 codegen-units = 1
 
+[dependencies]
+usbd-serial = "~0.1"
+cortex-m = "*"
+cortex-m-rt = "*"
+
 [dependencies.arduino_mkrvidor4000]
 version = "~0.1"
-git = "https://github.com/sameer/atsamd.git"
+path = "../atsamd/boards/arduino_mkrvidor4000"
 features = ["default", "usb"]

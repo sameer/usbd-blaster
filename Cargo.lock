@@ -12,7 +12,6 @@ dependencies = [
 [[package]]
 name = "arduino_mkrvidor4000"
 version = "0.1.0"
-source = "git+https://github.com/sameer/atsamd.git#3cda2b6055433aabd4001474605dd6d4f924893c"
 dependencies = [
  "atsamd-hal",
  "cortex-m",
@@ -37,7 +36,6 @@ dependencies = [
 [[package]]
 name = "atsamd-hal"
 version = "0.8.2"
-source = "git+https://github.com/sameer/atsamd.git#3cda2b6055433aabd4001474605dd6d4f924893c"
 dependencies = [
  "atsamd21g18a",
  "bitfield",
@@ -54,7 +52,6 @@ dependencies = [
 [[package]]
 name = "atsamd21g18a"
 version = "0.6.0"
-source = "git+https://github.com/sameer/atsamd.git#3cda2b6055433aabd4001474605dd6d4f924893c"
 dependencies = [
  "bare-metal",
  "cortex-m",
@@ -276,6 +273,20 @@ name = "usbblaster-rs"
 version = "0.1.0"
 dependencies = [
  "arduino_mkrvidor4000",
+ "cortex-m",
+ "cortex-m-rt",
+ "usbd-serial",
+]
+
+[[package]]
+name = "usbd-serial"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b45051be4bc25e6f85caacb1d3f45ace644fcc6e662b3d976330912542b7f69e"
+dependencies = [
+ "embedded-hal",
+ "nb",
+ "usb-device",
 ]
 
 [[package]]
