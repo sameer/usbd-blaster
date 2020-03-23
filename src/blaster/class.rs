@@ -20,6 +20,8 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
         Ok(())
     }
 
+    fn reset(&mut self) {}
+
     fn control_in(&mut self, xfer: ControlIn<B>) {
         if xfer.request().request_type == RequestType::Vendor {
             match xfer.request().request {
@@ -35,7 +37,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                 }
                 _ => {
                     // return dummy data
-                    xfer.accept_with(&[0u8; 2]).unwrap();
+                    xfer.accept_with(&[0u8; 2]).ok();
                 }
             }
         }
@@ -43,8 +45,8 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
 
     fn control_out(&mut self, xfer: ControlOut<B>) {
         if xfer.request().request_type == RequestType::Vendor {
-            xfer.accept().unwrap();
-            // usbd.epBank1SetByteCount(ep, 0); ??
+            xfer.accept().ok();
+        // usbd.epBank1SetByteCount(ep, 0); ??
         }
     }
 }
@@ -70,11 +72,9 @@ impl<B: UsbBus> BlasterClass<'_, B> {
             rom: Rom::new(),
             iface: alloc.interface(),
             in_ep: alloc
-                .alloc(None, EndpointType::Bulk, max_packet_size, 1)
-                .unwrap(),
+                .bulk(max_packet_size),
             out_ep: alloc
-                .alloc(None, EndpointType::Bulk, max_packet_size, 1)
-                .unwrap(),
+                .bulk(16) // TODO: specify for linux to be smaller
         }
     }
 }
