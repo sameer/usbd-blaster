@@ -13,6 +13,13 @@ pub struct BlasterClass<'a, B: UsbBus> {
 }
 
 impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, B> {
+    fn get_configuration_descriptors(&self, w: &mut DescriptorWriter) -> Result<()> {
+        w.interface(self.iface, 0xFF, 0xFF, 0xFF)?;
+        w.endpoint(&self.in_ep)?;
+        w.endpoint(&self.out_ep)?;
+        Ok(())
+    }
+
     fn control_in(&mut self, xfer: ControlIn<B>) {
         if xfer.request().request_type == RequestType::Vendor {
             match xfer.request().request {
@@ -38,7 +45,6 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
         if xfer.request().request_type == RequestType::Vendor {
             xfer.accept().unwrap();
             // usbd.epBank1SetByteCount(ep, 0); ??
-            // xfer.accept();
         }
     }
 }
