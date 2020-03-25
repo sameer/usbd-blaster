@@ -18,8 +18,6 @@ use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod blaster;
 
-
-
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
 // static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
 static mut USB_BLASTER: Option<blaster::Blaster<UsbBus>> = None;
@@ -68,10 +66,8 @@ fn main() -> ! {
         USB_BUS = UsbDeviceBuilder::new(&allocator, blaster::ALTERA_BLASTER_USB_VID_PID)
             .manufacturer("Arduino LLC")
             .product("Arduino MKR Vidor 4000")
-            .serial_number("1234")
-            // .device_class(USB_CLASS_CDC)
-            // .device_release(0x0004)
-            // .max_packet_size_0(16) // setOutEpSize (?)
+            .serial_number("12345678")
+            .device_release(0x0400)
             .max_power(500)
             .build()
             .into();

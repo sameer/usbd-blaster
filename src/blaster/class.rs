@@ -46,7 +46,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
     fn control_out(&mut self, xfer: ControlOut<B>) {
         if xfer.request().request_type == RequestType::Vendor {
             xfer.accept().ok();
-        // usbd.epBank1SetByteCount(ep, 0); ??
+            // usbd.epBank1SetByteCount(ep, 0); ??
         }
     }
 }
@@ -67,14 +67,26 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     const FTDI_VEN_REQ_RD_EEPROM: u8 = 0x90;
     const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
     const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
+
     pub fn new(alloc: &UsbBusAllocator<B>, max_packet_size: u16) -> BlasterClass<'_, B> {
+        // Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
+        // This will change the endpoint size (OS side) so it's less likely to send more than 64 bytes in a single chunk.
+        const OUTPUT_ENDPOINT_SIZE: u16 = 32;
+
         BlasterClass {
             rom: Rom::new(),
             iface: alloc.interface(),
             in_ep: alloc
-                .bulk(max_packet_size),
+                .alloc(Some(0x81.into()), EndpointType::Bulk, max_packet_size, 1)
+                .expect("alloc_ep failed"),
             out_ep: alloc
-                .bulk(16) // TODO: specify for linux to be smaller
+                .alloc(
+                    Some(0x02.into()),
+                    EndpointType::Bulk,
+                    OUTPUT_ENDPOINT_SIZE,
+                    1,
+                )
+                .expect("alloc_ep failed"),
         }
     }
 }

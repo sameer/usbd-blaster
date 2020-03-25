@@ -1,6 +1,8 @@
 use hal::gpio::IntoFunction;
 use hal::prelude::*;
-use hal::usb::usb_device::{class_prelude::*, prelude::*, control::RequestType, descriptor, Result};
+use hal::usb::usb_device::{
+    class_prelude::*, control::RequestType, descriptor, prelude::*, Result,
+};
 use hal::Pins;
 
 mod class;
@@ -38,7 +40,7 @@ impl<'a, B: UsbBus> Blaster<'a, B> {
 
 impl<B> UsbClass<B> for Blaster<'_, B>
 where
-    B: UsbBus
+    B: UsbBus,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.class.get_configuration_descriptors(writer)
@@ -48,8 +50,11 @@ where
         self.class.reset();
     }
 
-    fn control_in(&mut self, xfer: ControlIn<B>) { self.class.control_in(xfer); }
+    fn control_in(&mut self, xfer: ControlIn<B>) {
+        self.class.control_in(xfer);
+    }
 
-    fn control_out(&mut self, xfer: ControlOut<B>) { self.class.control_out(xfer); }
+    fn control_out(&mut self, xfer: ControlOut<B>) {
+        self.class.control_out(xfer);
+    }
 }
-
