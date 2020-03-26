@@ -5,7 +5,6 @@ extern crate arduino_mkrvidor4000 as hal;
 
 use cortex_m::peripheral::syst::SystClkSource;
 use hal::clock::GenericClockController;
-use hal::delay::Delay;
 use hal::entry;
 use hal::gpio::IntoFunction;
 use hal::pac::{
@@ -38,7 +37,11 @@ fn main() -> ! {
         &mut peripherals.SYSCTRL,
         &mut peripherals.NVMCTRL,
     );
-
+    // FPGA Clock
+    clocks
+        .configure_gclk_divider_and_source(GEN_A::GCLK2, 1, SRC_A::DFLL48M, true)
+        .unwrap();
+    // USB Clock
     let usb_gclk = clocks
         .configure_gclk_divider_and_source(GEN_A::GCLK6, 1, SRC_A::DFLL48M, true)
         .unwrap();
@@ -86,13 +89,11 @@ fn main() -> ! {
     // let mut delay = Delay::new(core.SYST, &mut clocks);
 
     loop {
-        // cortex_m::interrupt::free(|_| unsafe {
-        //     // if HIGH {
-        //     //     led.set_high().unwrap();
-        //     // } else {
-        //     //     led.set_low().unwrap();
-        //     // }
-        // });
+        cortex_m::interrupt::free(|_| unsafe {
+            USB_BLASTER.as_mut().map(|blaster| {
+                blaster.handle();
+            });
+        });
     }
 }
 
@@ -104,11 +105,14 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
-                if let Ok(amount) = blaster.read() {
+                if let Ok(_amount) = blaster.read() {
                     LED.as_mut().map(|ref mut led| led.set_high().unwrap());
                 }
-                blaster.handle();
-                blaster.write(true).ok();
+                // if let Ok(_amount) = blaster.write(true) {
+                //     LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                // } else {
+                //     LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                // }
             });
             // USB_SERIAL.as_mut().map(|serial| {
             //     usb_dev.poll(&mut [serial]);

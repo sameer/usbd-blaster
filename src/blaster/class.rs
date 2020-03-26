@@ -9,7 +9,6 @@ pub struct BlasterClass<'a, B: UsbBus> {
 }
 
 impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, B> {
-    #[inline]
     fn get_configuration_descriptors(&self, w: &mut DescriptorWriter) -> Result<()> {
         w.interface(self.iface, 0xFF, 0xFF, 0xFF)?;
         w.endpoint(&self.write_ep)?;
@@ -19,7 +18,6 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
 
     fn reset(&mut self) {}
 
-    #[inline]
     fn control_in(&mut self, xfer: ControlIn<B>) {
         let req = xfer.request();
         if !(req.recipient == control::Recipient::Interface
@@ -30,15 +28,21 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
         if req.request_type == RequestType::Vendor {
             match req.request {
                 Self::FTDI_VEN_REQ_RD_EEPROM => {
-                    let addr = ((req.index << 1) & 0x7f) as u8;
-                    xfer.accept_with(&[ROM[addr as usize], ROM[(addr + 1) as usize]]).unwrap();
+                    let addr = (((req.index >> 8 ) & 0x3f) << 1) as usize;
+                    xfer.accept_with(&[ROM[addr], ROM[addr + 1]]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
                     xfer.accept_with(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_LAT_TIMER => {
                     xfer.accept_with(&Self::FTDI_LAT_TIMER_DUMMY).unwrap();
-                }
+                },
+                Self::FTDI_VEN_REQ_RESET => {
+                    self.reset();
+                },
+                Self::FTDI_VEN_REQ_SET_BAUDRATE => {},
+                Self::FTDI_VEN_REQ_SET_FLOW_CTRL => {},
+                Self::FTDI_VEN_REQ_SET_MODEM_CTRL => {},
                 _ => {
                     xfer.accept_with(&[0u8; 2]).unwrap();
                 }
@@ -48,7 +52,6 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
         }
     }
 
-    #[inline]
     fn control_out(&mut self, xfer: ControlOut<B>) {
         let req = xfer.request();
         if !(req.recipient == control::Recipient::Interface
@@ -93,8 +96,8 @@ impl<B: UsbBus> BlasterClass<'_, B> {
             iface: alloc.interface(),
             write_ep: alloc
                 .alloc(
-                    None,
-                    // Some(0x81.into()),
+                    // None,
+                    Some(0x81.into()),
                     EndpointType::Bulk,
                     max_write_packet_size,
                     1,
@@ -102,8 +105,8 @@ impl<B: UsbBus> BlasterClass<'_, B> {
                 .expect("alloc_ep failed"),
             read_ep: alloc
                 .alloc(
-                    None,
-                    // Some(0x02.into()),
+                    // None,
+                    Some(0x02.into()),
                     EndpointType::Bulk,
                     max_read_packet_size,
                     1,
@@ -112,12 +115,10 @@ impl<B: UsbBus> BlasterClass<'_, B> {
         }
     }
 
-    #[inline]
     pub fn read(&mut self, data: &mut [u8]) -> Result<usize> {
         self.read_ep.read(data)
     }
 
-    #[inline]
     pub fn write(&mut self, data: &[u8]) -> Result<usize> {
         self.write_ep.write(data)
     }

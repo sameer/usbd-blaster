@@ -20,5 +20,5 @@ default-features = false
 
 [dependencies.arduino_mkrvidor4000]
 version = "~0.1"
-path = "../atsamd/boards/arduino_mkrvidor4000"
+git = "https://github.com/sameer/atsamd.git"
 features = ["default", "usb", "unproven"]

@@ -11,13 +11,13 @@ pub const ALTERA_BLASTER_USB_VID_PID: UsbVidPid = UsbVidPid(0x09FB, 0x6001);
 
 // Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
 // This will change the endpoint size (OS side) so it's less likely to send more than 64 bytes in a single chunk.
-const BLASTER_READ_SIZE: usize = 512;
-const BLASTER_WRITE_SIZE: usize = 512;
+const BLASTER_WRITE_SIZE: usize = 64;
+const BLASTER_READ_SIZE: usize = 32;
 
 pub struct USBBlaster<'a, B: UsbBus> {
     class: BlasterClass<'a, B>,
     port: port::Port,
-    send_buffer: ArrayVec<[u8; BLASTER_WRITE_SIZE ]>,
+    send_buffer: ArrayVec<[u8; BLASTER_WRITE_SIZE]>,
     recv_buffer: ArrayVec<[u8; BLASTER_READ_SIZE]>,
     first_send: bool,
     send_ready: bool,
@@ -44,7 +44,14 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
 
     pub fn read(&mut self) -> Result<usize> {
         self.send_ready = true;
-        self.class.read(&mut self.recv_buffer)
+        if self.recv_buffer.len() > 0 {
+            return Ok(0);
+        }
+        let amount = self.class.read(&mut self.recv_buffer)?;
+        unsafe {
+            self.recv_buffer.set_len(amount);
+        }
+        Ok(amount)
     }
 
     pub fn write(&mut self, heartbeat: bool) -> Result<usize> {
@@ -61,26 +68,33 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
         } else {
             return Ok(0);
         }
-        let res = self.class.write(&self.send_buffer);
-        self.send_buffer.pop_at(0);
+        let res = self
+            .class
+            .write(&self.send_buffer[0..self.send_buffer.len()]);
+        self.send_buffer.pop_at(1);
         self.send_buffer.pop_at(0);
         if res.is_ok() {
             let amount = *res.as_ref().unwrap();
-            if amount <= 2 { // TODO: how to handle a half-sent STA?
+            if amount <= 2 {
+                if amount == 1 {
+                    // TODO: how to handle a half-sent STA?
+                    // panic!();
+                }
             } else {
-                for _i in 0..amount-2 {
+                for _i in 0..amount - 2 {
                     self.send_buffer.pop_at(0);
                 }
             }
         }
-       res
+        res
         /* Reset the control token to inform upper layer that a transfer is ongoing */
         // TODO: should this be enabled? Testing needed
         // self.send_ready = false;
     }
 
     pub fn handle(&mut self) {
-        self.port.handle(&mut self.recv_buffer, &mut self.send_buffer);
+        self.port
+            .handle(&mut self.recv_buffer, &mut self.send_buffer);
     }
 }
 

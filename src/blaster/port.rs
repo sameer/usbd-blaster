@@ -1,4 +1,3 @@
-use core::ops::Index;
 use hal::prelude::*;
 
 pub struct Port {
@@ -134,8 +133,8 @@ impl Port {
     }
 
     pub fn handle<
-        A1: arrayvec::Array<Item = u8, Index = u16>,
-        A2: arrayvec::Array<Item = u8, Index = u16>,
+        A1: arrayvec::Array<Item = u8, Index = u8>,
+        A2: arrayvec::Array<Item = u8, Index = u8>,
     >(
         &mut self,
         receive: &mut arrayvec::ArrayVec<A1>,
@@ -143,7 +142,7 @@ impl Port {
     ) {
         let mut i = 0;
         while i < receive.len() {
-            if send.len() == send.capacity() - 2 {
+            if send.remaining_capacity() <= 2 {
                 break;
             }
 
