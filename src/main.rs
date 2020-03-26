@@ -78,7 +78,6 @@ fn main() -> ! {
             .serial_number("12345678")
             .device_release(0x0400)
             .max_power(500)
-            .supports_remote_wakeup(true)
             .build()
             .into();
         core.NVIC.set_priority(interrupt::USB, 1);

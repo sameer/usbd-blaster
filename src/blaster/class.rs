@@ -32,7 +32,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
             match req.request {
                 Self::FTDI_VEN_REQ_RD_EEPROM => {
                     let addr = ((req.index << 1) & 0x7F) as usize;
-                    xfer.accept_with(&self.rom.buf[addr..=addr + 1]).unwrap();
+                    xfer.accept_with(&[self.rom.buf[addr], self.rom.buf[addr + 1]]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
                     xfer.accept_with(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
@@ -41,7 +41,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                     xfer.accept_with(&Self::FTDI_LAT_TIMER_DUMMY).unwrap();
                 }
                 _ => {
-                    xfer.accept_with(&[0u8; 2]).ok();
+                    xfer.accept_with(&[0u8; 2]).unwrap();
                 }
             }
         }
@@ -56,7 +56,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
             return;
         }
         if req.request_type == RequestType::Vendor {
-            xfer.accept().ok();
+            xfer.accept().unwrap();
         // usbd.epBank1SetByteCount(ep, 0); TODO: is this the same as accept()?
         }
     }
