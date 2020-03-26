@@ -1,9 +1,8 @@
 use hal::usb::usb_device::{class_prelude::*, control::RequestType, Result};
 
-use super::ft245::Rom;
+use super::ft245::ROM;
 
 pub struct BlasterClass<'a, B: UsbBus> {
-    rom: Rom,
     iface: InterfaceNumber,
     write_ep: EndpointIn<'a, B>,
     read_ep: EndpointOut<'a, B>,
@@ -31,8 +30,8 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
         if req.request_type == RequestType::Vendor {
             match req.request {
                 Self::FTDI_VEN_REQ_RD_EEPROM => {
-                    let addr = ((req.index << 1) & 0x7F) as usize;
-                    xfer.accept_with(&[self.rom.buf[addr], self.rom.buf[addr + 1]]).unwrap();
+                    let addr = ((req.index << 1) & 0x7f) as u8;
+                    xfer.accept_with(&[ROM[addr as usize], ROM[(addr + 1) as usize]]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
                     xfer.accept_with(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
@@ -44,6 +43,8 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                     xfer.accept_with(&[0u8; 2]).unwrap();
                 }
             }
+        } else {
+            xfer.reject().unwrap();
         }
     }
 
@@ -57,7 +58,8 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
         }
         if req.request_type == RequestType::Vendor {
             xfer.accept().unwrap();
-        // usbd.epBank1SetByteCount(ep, 0); TODO: is this the same as accept()?
+        } else {
+            xfer.reject().unwrap();
         }
     }
 }
@@ -88,11 +90,11 @@ impl<B: UsbBus> BlasterClass<'_, B> {
         max_read_packet_size: u16,
     ) -> BlasterClass<'_, B> {
         BlasterClass {
-            rom: Rom::new(),
             iface: alloc.interface(),
             write_ep: alloc
                 .alloc(
-                    Some(0x81.into()),
+                    None,
+                    // Some(0x81.into()),
                     EndpointType::Bulk,
                     max_write_packet_size,
                     1,
@@ -100,7 +102,8 @@ impl<B: UsbBus> BlasterClass<'_, B> {
                 .expect("alloc_ep failed"),
             read_ep: alloc
                 .alloc(
-                    Some(0x02.into()),
+                    None,
+                    // Some(0x02.into()),
                     EndpointType::Bulk,
                     max_read_packet_size,
                     1,

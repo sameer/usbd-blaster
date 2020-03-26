@@ -11,8 +11,8 @@ pub const ALTERA_BLASTER_USB_VID_PID: UsbVidPid = UsbVidPid(0x09FB, 0x6001);
 
 // Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
 // This will change the endpoint size (OS side) so it's less likely to send more than 64 bytes in a single chunk.
-const BLASTER_READ_SIZE: usize = 32;
-const BLASTER_WRITE_SIZE: usize = 64;
+const BLASTER_READ_SIZE: usize = 512;
+const BLASTER_WRITE_SIZE: usize = 512;
 
 pub struct USBBlaster<'a, B: UsbBus> {
     class: BlasterClass<'a, B>,
