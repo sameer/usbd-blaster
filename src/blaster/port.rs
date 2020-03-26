@@ -142,7 +142,7 @@ impl Port {
     ) {
         let mut i = 0;
         while i < receive.len() {
-            if send.len() == send.capacity() {
+            if send.len() == send.capacity() - 2 {
                 break;
             }
 
@@ -186,19 +186,6 @@ impl Port {
             self.tck.set_low().unwrap();
         }
         self.jtag_state = self.jtag_state.advance(mode);
-    }
-    fn set_state_internal(&mut self, state: JTAGState) {
-        while self.jtag_state != state {
-            if self.jtag_state.advance(false) == state {
-                self.advance(false, true);
-            } else if self.jtag_state.advance(true) == state {
-                self.advance(true, true);
-            } else if self.jtag_state.advance(false) == self.jtag_state {
-                self.advance(true, true);
-            } else if self.jtag_state.advance(true) == self.jtag_state {
-                self.advance(false, true);
-            }
-        }
     }
 
     pub fn set_state(&mut self, state: u8) {

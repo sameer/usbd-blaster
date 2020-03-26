@@ -19,8 +19,8 @@ use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod blaster;
 
-#[link_section = "FLASH_FPGA"]
-pub const FLASH: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
+// #[link_section = "FLASH_FPGA"]
+// pub const FLASH: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
 
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
 // static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
@@ -59,7 +59,10 @@ fn main() -> ! {
         USB_ALLOCATOR.as_ref().unwrap()
     };
     unsafe {
-        LED = pins.led_builtin.into_open_drain_output(&mut pins.port).into();
+        LED = pins
+            .led_builtin
+            .into_open_drain_output(&mut pins.port)
+            .into();
         USB_BLASTER = blaster::USBBlaster::new(
             USB_ALLOCATOR.as_ref().unwrap(),
             pins.fpga_tdi.into_push_pull_output(&mut pins.port),
@@ -75,6 +78,7 @@ fn main() -> ! {
             .serial_number("12345678")
             .device_release(0x0400)
             .max_power(500)
+            .supports_remote_wakeup(true)
             .build()
             .into();
         core.NVIC.set_priority(interrupt::USB, 1);
@@ -83,13 +87,13 @@ fn main() -> ! {
     // let mut delay = Delay::new(core.SYST, &mut clocks);
 
     loop {
-        cortex_m::interrupt::free(|_| unsafe {
-            // if HIGH {
-            //     led.set_high().unwrap();
-            // } else {
-            //     led.set_low().unwrap();
-            // }
-        });
+        // cortex_m::interrupt::free(|_| unsafe {
+        //     // if HIGH {
+        //     //     led.set_high().unwrap();
+        //     // } else {
+        //     //     led.set_low().unwrap();
+        //     // }
+        // });
     }
 }
 
@@ -101,15 +105,11 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
-                if let Ok(count_written) = blaster.process(false) {
-                    if let Some(ref mut led) = &mut LED {
-                        led.set_low().unwrap();
-                    }
-                } else {
-                    if let Some(ref mut led) = &mut LED {
-                        led.set_high().unwrap();
-                    }
+                if let Ok(amount) = blaster.read() {
+                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
                 }
+                blaster.handle();
+                blaster.write(true).ok();
             });
             // USB_SERIAL.as_mut().map(|serial| {
             //     usb_dev.poll(&mut [serial]);
