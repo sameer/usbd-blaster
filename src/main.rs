@@ -3,6 +3,7 @@
 
 extern crate arduino_mkrvidor4000 as hal;
 
+use cortex_m::peripheral::syst::SystClkSource;
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
 use hal::entry;
@@ -18,10 +19,14 @@ use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod blaster;
 
+#[link_section = "FLASH_FPGA"]
+pub const FLASH: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
+
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
 // static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
-static mut USB_BLASTER: Option<blaster::Blaster<UsbBus>> = None;
+static mut USB_BLASTER: Option<blaster::USBBlaster<UsbBus>> = None;
 static mut USB_BUS: Option<UsbDevice<UsbBus>> = None;
+static mut LED: Option<hal::gpio::Pb8<hal::gpio::Output<hal::gpio::OpenDrain>>> = None;
 
 #[entry]
 fn main() -> ! {
@@ -34,13 +39,13 @@ fn main() -> ! {
         &mut peripherals.NVMCTRL,
     );
 
-    // let ft245 = UsbDeviceBuilder::new(bus.allocator());
-    let mut pins = hal::Pins::new(peripherals.PORT);
-
     let usb_gclk = clocks
         .configure_gclk_divider_and_source(GEN_A::GCLK6, 1, SRC_A::DFLL48M, true)
         .unwrap();
     let usb_clock = &clocks.usb(&usb_gclk).unwrap();
+    core.SYST.set_clock_source(SystClkSource::Core);
+
+    let mut pins = hal::Pins::new(peripherals.PORT);
 
     let allocator = unsafe {
         USB_ALLOCATOR = UsbBusAllocator::new(UsbBus::new(
@@ -54,12 +59,13 @@ fn main() -> ! {
         USB_ALLOCATOR.as_ref().unwrap()
     };
     unsafe {
-        USB_BLASTER = blaster::Blaster::new(
+        LED = pins.led_builtin.into_open_drain_output(&mut pins.port).into();
+        USB_BLASTER = blaster::USBBlaster::new(
             USB_ALLOCATOR.as_ref().unwrap(),
-            pins.fpga_tdi,
+            pins.fpga_tdi.into_push_pull_output(&mut pins.port),
             pins.fpga_tck.into_push_pull_output(&mut pins.port),
             pins.fpga_tms.into_push_pull_output(&mut pins.port),
-            pins.fpga_tdo.into_push_pull_output(&mut pins.port),
+            pins.fpga_tdo,
         )
         .into();
         // USB_SERIAL = SerialPort::new(&allocator).into();
@@ -74,8 +80,7 @@ fn main() -> ! {
         core.NVIC.set_priority(interrupt::USB, 1);
         NVIC::unmask(interrupt::USB);
     }
-    let mut led = pins.led_builtin.into_open_drain_output(&mut pins.port);
-    let mut delay = Delay::new(core.SYST, &mut clocks);
+    // let mut delay = Delay::new(core.SYST, &mut clocks);
 
     loop {
         cortex_m::interrupt::free(|_| unsafe {
@@ -96,6 +101,15 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
+                if let Ok(count_written) = blaster.process(false) {
+                    if let Some(ref mut led) = &mut LED {
+                        led.set_low().unwrap();
+                    }
+                } else {
+                    if let Some(ref mut led) = &mut LED {
+                        led.set_high().unwrap();
+                    }
+                }
             });
             // USB_SERIAL.as_mut().map(|serial| {
             //     usb_dev.poll(&mut [serial]);

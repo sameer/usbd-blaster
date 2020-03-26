@@ -1,52 +1,63 @@
-use hal::gpio::IntoFunction;
-use hal::prelude::*;
-use hal::usb::usb_device::{class_prelude::*, control::RequestType, descriptor, Result};
-use hal::Pins;
+use hal::usb::usb_device::{class_prelude::*, control::RequestType, Result};
 
 use super::ft245::Rom;
 
 pub struct BlasterClass<'a, B: UsbBus> {
     rom: Rom,
     iface: InterfaceNumber,
-    in_ep: EndpointIn<'a, B>,
-    out_ep: EndpointOut<'a, B>,
+    write_ep: EndpointIn<'a, B>,
+    read_ep: EndpointOut<'a, B>,
 }
 
 impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, B> {
+    #[inline]
     fn get_configuration_descriptors(&self, w: &mut DescriptorWriter) -> Result<()> {
         w.interface(self.iface, 0xFF, 0xFF, 0xFF)?;
-        w.endpoint(&self.in_ep)?;
-        w.endpoint(&self.out_ep)?;
+        w.endpoint(&self.write_ep)?;
+        w.endpoint(&self.read_ep)?;
         Ok(())
     }
 
     fn reset(&mut self) {}
 
+    #[inline]
     fn control_in(&mut self, xfer: ControlIn<B>) {
-        if xfer.request().request_type == RequestType::Vendor {
-            match xfer.request().request {
+        let req = xfer.request();
+        if !(req.recipient == control::Recipient::Interface
+            && req.index == u8::from(self.iface) as u16)
+        {
+            return;
+        }
+        if req.request_type == RequestType::Vendor {
+            match req.request {
                 Self::FTDI_VEN_REQ_RD_EEPROM => {
-                    let addr = ((xfer.request().index << 1) & 0x7F) as usize;
-                    xfer.accept_with(&self.rom.buf[addr..addr + 2]).unwrap();
+                    let addr = ((req.index << 1) & 0x7F) as usize;
+                    xfer.accept_with(&self.rom.buf[addr..=addr + 1]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
-                    xfer.accept_with(&[0x01, 0x60]).unwrap();
+                    xfer.accept_with(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_LAT_TIMER => {
-                    xfer.accept_with(&['6' as u8; 1]).unwrap();
+                    xfer.accept_with(&Self::FTDI_LAT_TIMER_DUMMY).unwrap();
                 }
                 _ => {
-                    // return dummy data
                     xfer.accept_with(&[0u8; 2]).ok();
                 }
             }
         }
     }
 
+    #[inline]
     fn control_out(&mut self, xfer: ControlOut<B>) {
-        if xfer.request().request_type == RequestType::Vendor {
+        let req = xfer.request();
+        if !(req.recipient == control::Recipient::Interface
+            && req.index == u8::from(self.iface) as u16)
+        {
+            return;
+        }
+        if req.request_type == RequestType::Vendor {
             xfer.accept().ok();
-            // usbd.epBank1SetByteCount(ep, 0); ??
+        // usbd.epBank1SetByteCount(ep, 0); TODO: is this the same as accept()?
         }
     }
 }
@@ -68,25 +79,43 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
     const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
 
-    pub fn new(alloc: &UsbBusAllocator<B>, max_packet_size: u16) -> BlasterClass<'_, B> {
-        // Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
-        // This will change the endpoint size (OS side) so it's less likely to send more than 64 bytes in a single chunk.
-        const OUTPUT_ENDPOINT_SIZE: u16 = 32;
+    pub const FTDI_MODEM_STA_DUMMY: [u8; 2] = [0x01, 0x60];
+    const FTDI_LAT_TIMER_DUMMY: [u8; 1] = ['6' as u8];
 
+    pub fn new(
+        alloc: &UsbBusAllocator<B>,
+        max_write_packet_size: u16,
+        max_read_packet_size: u16,
+    ) -> BlasterClass<'_, B> {
         BlasterClass {
             rom: Rom::new(),
             iface: alloc.interface(),
-            in_ep: alloc
-                .alloc(Some(0x81.into()), EndpointType::Bulk, max_packet_size, 1)
+            write_ep: alloc
+                .alloc(
+                    Some(0x81.into()),
+                    EndpointType::Bulk,
+                    max_write_packet_size,
+                    1,
+                )
                 .expect("alloc_ep failed"),
-            out_ep: alloc
+            read_ep: alloc
                 .alloc(
                     Some(0x02.into()),
                     EndpointType::Bulk,
-                    OUTPUT_ENDPOINT_SIZE,
+                    max_read_packet_size,
                     1,
                 )
                 .expect("alloc_ep failed"),
         }
+    }
+
+    #[inline]
+    pub fn read(&mut self, data: &mut [u8]) -> Result<usize> {
+        self.read_ep.read(data)
+    }
+
+    #[inline]
+    pub fn write(&mut self, data: &[u8]) -> Result<usize> {
+        self.write_ep.write(data)
     }
 }

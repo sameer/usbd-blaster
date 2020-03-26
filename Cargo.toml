@@ -14,7 +14,11 @@ usbd-serial = "~0.1"
 cortex-m = "*"
 cortex-m-rt = "*"
 
+[dependencies.arrayvec]
+version = "~0.5.1"
+default-features = false
+
 [dependencies.arduino_mkrvidor4000]
 version = "~0.1"
 path = "../atsamd/boards/arduino_mkrvidor4000"
-features = ["default", "usb"]
+features = ["default", "usb", "unproven"]

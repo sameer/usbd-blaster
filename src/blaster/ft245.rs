@@ -1,4 +1,5 @@
 use hal::usb::usb_device::descriptor::descriptor_type::*;
+
 const FT245ROM_SIZE: usize = (128);
 const FT245ROM_STR_LIMIT: usize = (100);
 
