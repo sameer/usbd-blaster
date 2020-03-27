@@ -1,4 +1,3 @@
-use arrayvec::ArrayVec;
 use hal::usb::usb_device::{class_prelude::*, control::RequestType, prelude::*, Result};
 
 mod class;
@@ -12,15 +11,16 @@ pub const ALTERA_BLASTER_USB_VID_PID: UsbVidPid = UsbVidPid(0x09FB, 0x6001);
 // Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
 // This will change the endpoint size (OS side) so it's less likely to send more than 64 bytes in a single chunk.
 const BLASTER_WRITE_SIZE: usize = 64;
-const BLASTER_READ_SIZE: usize = 64;
+const BLASTER_READ_SIZE: usize = 32;
 
 pub struct USBBlaster<'a, B: UsbBus> {
     class: BlasterClass<'a, B>,
     port: port::Port,
-    send_buffer: ArrayVec<[u8; BLASTER_WRITE_SIZE]>,
-    recv_buffer: ArrayVec<[u8; BLASTER_READ_SIZE]>,
+    send_buffer: [u8; BLASTER_WRITE_SIZE],
+    send_len: usize,
+    recv_buffer: [u8; BLASTER_READ_SIZE],
+    recv_len: usize,
     first_send: bool,
-    send_ready: bool,
 }
 
 impl<'a, B: UsbBus> USBBlaster<'a, B> {
@@ -34,66 +34,58 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
         USBBlaster {
             class: BlasterClass::new(alloc, BLASTER_WRITE_SIZE as u16, BLASTER_READ_SIZE as u16),
             port: port::Port::new(tdi, tck, tms, tdo),
-            send_buffer: ArrayVec::new(),
-            recv_buffer: ArrayVec::new(),
+            send_buffer: [0u8; BLASTER_WRITE_SIZE],
+            send_len: 0,
+            recv_buffer: [0u8; BLASTER_READ_SIZE],
+            recv_len: 0,
             first_send: true,
-            send_ready: true,
         }
     }
 
     pub fn read(&mut self) -> Result<usize> {
-        if self.recv_buffer.len() > 0 {
-            return Ok(0);
+        if self.recv_len == BLASTER_READ_SIZE {
+            return Err(UsbError::WouldBlock)
         }
-        let amount = self.class.read(&mut self.recv_buffer)?;
-        unsafe {
-            self.recv_buffer.set_len(amount);
-        }
-        // self.send_ready = true;
+        let amount = self.class.read(&mut self.recv_buffer[self.recv_len..])?;
+        self.recv_len = amount;
         Ok(amount)
     }
 
     pub fn write(&mut self, heartbeat: bool) -> Result<usize> {
-        if !self.send_ready {
-            return Ok(0);
+        // if !self.send_ready {
+        //     return Err(UsbError::WouldBlock);
+        // }
+        if !(self.send_len != 0 || self.first_send || heartbeat) {
+            return Err(UsbError::WouldBlock);
         }
-
-        if self.send_buffer.len() != 0 || self.first_send || heartbeat {
-            self.send_buffer
-                .insert(0, BlasterClass::<'_, B>::FTDI_MODEM_STA_DUMMY[0]);
-            self.send_buffer
-                .insert(1, BlasterClass::<'_, B>::FTDI_MODEM_STA_DUMMY[1]);
-            self.first_send = false;
-        } else {
-            return Ok(0);
-        }
+        self.send_buffer[0] = BlasterClass::<'_, B>::FTDI_MODEM_STA_DUMMY[0];
+        self.send_buffer[1] = BlasterClass::<'_, B>::FTDI_MODEM_STA_DUMMY[1];
+        self.first_send = false;
         let res = self
             .class
-            .write(&self.send_buffer[0..self.send_buffer.len()]);
-        self.send_buffer.pop_at(1);
-        self.send_buffer.pop_at(0);
+            .write(&self.send_buffer[0..self.send_len + 2]);
         if res.is_ok() {
             let amount = *res.as_ref().unwrap();
             if amount <= 2 {
                 if amount == 1 {
                     // TODO: how to handle a half-sent STA?
-                    // panic!();
+                    panic!("Cannot recover from half-sent status");
                 }
             } else {
-                for _i in 0..amount - 2 {
-                    self.send_buffer.pop_at(0);
+                for i in 0..(self.send_len - amount - 2) {
+                    self.send_buffer[i + 2] = self.send_buffer[i + 2 + (amount - 2)];
                 }
+                self.send_len -= amount - 2;
             }
         }
         /* Reset the control token to inform upper layer that a transfer is ongoing */
-        // TODO: should this be enabled? Testing needed
         // self.send_ready = false;
         res
     }
 
     pub fn handle(&mut self) {
         self.port
-            .handle(&mut self.recv_buffer, &mut self.send_buffer);
+            .handle(&mut self.recv_buffer, &mut self.recv_len, &mut self.send_buffer[2..], &mut self.send_len);
     }
 }
 
@@ -109,9 +101,10 @@ where
         self.class.reset();
         self.port.reset();
         self.first_send = true;
-        self.send_ready = true;
-        self.send_buffer.clear();
-        self.recv_buffer.clear();
+        self.send_len = 0;
+        self.recv_len = 0;
+        // self.send_ready = true;
+
     }
 
     fn control_in(&mut self, xfer: ControlIn<B>) {
@@ -128,9 +121,11 @@ where
                         0 => self.reset(),
                         1 => {
                             // self.read_ep.clear()
+                            self.reset();
                         }
                         2 => {
                             // self.write_ep.clear()
+                            self.reset();
                         }
                         _ => {}
                     }
@@ -148,16 +143,4 @@ where
             }
         }
     }
-
-    // fn endpoint_out(&mut self, addr: EndpointAddress) {
-    //     if self.class.read_ep.address() == addr {
-    //         self.read().ok();
-    //     }
-    // }
-
-    // fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
-    //     if self.class.write_ep.address() == addr {
-    //         self.send_ready = true;
-    //     }
-    // }
 }

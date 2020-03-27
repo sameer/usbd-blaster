@@ -13,9 +13,6 @@ codegen-units = 1
 cortex-m = "*"
 cortex-m-rt = "*"
 
-[dependencies.arrayvec]
-version = "~0.5.1"
-default-features = false
 
 [dependencies.arduino_mkrvidor4000]
 version = "~0.1"

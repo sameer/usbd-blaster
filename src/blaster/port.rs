@@ -132,21 +132,20 @@ impl Port {
         }
     }
 
-    pub fn handle<
-        A1: arrayvec::Array<Item = u8, Index = u8>,
-        A2: arrayvec::Array<Item = u8, Index = u8>,
-    >(
+    pub fn handle(
         &mut self,
-        receive: &mut arrayvec::ArrayVec<A1>,
-        send: &mut arrayvec::ArrayVec<A2>,
+        recv_buf: &mut [u8],
+        recv_len: &mut usize,
+        send_buf: &mut [u8],
+        send_len: &mut usize,
     ) {
-        let mut i = 0;
-        while i < receive.len() {
-            if send.remaining_capacity() <= 2 {
+        let mut i = 0usize;
+        while i < *recv_len {
+            if *send_len + 1 == send_buf.len() {
                 break;
             }
 
-            let d = receive[i];
+            let d = recv_buf[i];
             if self.shift_count == 0 {
                 // bit-bang mode (default)
                 let shift_en = (d & Self::BLASTER_STA_SHIFT) != 0;
@@ -156,13 +155,15 @@ impl Port {
                 } else {
                     self.set_state(d);
                     if self.read_en {
-                        send.push(self.get_state());
+                        send_buf[*send_len] = self.get_state();
+                        *send_len += 1;
                     }
                 }
             } else {
                 // shift-mode
                 if self.read_en {
-                    send.push(self.shift_io(d));
+                    send_buf[*send_len] = self.shift_io(d);
+                    *send_len += 1;
                 } else {
                     self.shift_out(d);
                 }
@@ -170,9 +171,10 @@ impl Port {
             }
             i += 1;
         }
-        for _i in 0..i {
-            receive.pop_at(0);
+        for j in 0..(*recv_len - i) {
+            recv_buf[j] = recv_buf[j + i];
         }
+        *recv_len -= i;
     }
 
     fn advance(&mut self, mode: bool, drive_signal: bool) {

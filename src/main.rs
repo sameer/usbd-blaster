@@ -77,7 +77,6 @@ fn main() -> ! {
             .product("Arduino MKR Vidor 4000")
             .serial_number("12345678")
             .device_release(0x0400)
-            .supports_remote_wakeup(true)
             .max_power(500)
             .build()
             .into();
@@ -87,21 +86,11 @@ fn main() -> ! {
     // let mut delay = Delay::new(core.SYST, &mut clocks);
 
     loop {
-        cortex_m::interrupt::free(|_| unsafe {
-            USB_BLASTER.as_mut().map(|blaster| {
-                if let Ok(_amount) = blaster.read() {
-                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                } else {
-                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                }
-                blaster.handle();
-                if let Ok(_amount) = blaster.write(false) {
-                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                } else {
-                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                }
-            })
-        });
+        // cortex_m::interrupt::free(|_| unsafe {
+        //     USB_BLASTER.as_mut().map(|blaster| {
+        //         blaster.handle();
+        //     });
+        // });
     }
 }
 
@@ -113,6 +102,21 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
+                if let Ok(amount) = blaster.read() {
+                    if amount > 0 {
+                        LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                    } else {
+                        LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                    }
+                } else {
+                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                }
+                blaster.handle();
+                if let Ok(_amount) = blaster.write(true) {
+                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                } else {
+                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                }
             });
         });
     };
