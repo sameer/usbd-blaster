@@ -14,7 +14,6 @@ use hal::pac::{
 use hal::prelude::*;
 use hal::usb::usb_device::{bus::UsbBusAllocator, prelude::*};
 use hal::usb::UsbBus;
-use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod blaster;
 
@@ -22,7 +21,6 @@ mod blaster;
 // pub const FLASH: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
 
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
-// static mut USB_SERIAL: Option<SerialPort<UsbBus>> = None;
 static mut USB_BLASTER: Option<blaster::USBBlaster<UsbBus>> = None;
 static mut USB_BUS: Option<UsbDevice<UsbBus>> = None;
 static mut LED: Option<hal::gpio::Pb8<hal::gpio::Output<hal::gpio::OpenDrain>>> = None;
@@ -74,7 +72,6 @@ fn main() -> ! {
             pins.fpga_tdo,
         )
         .into();
-        // USB_SERIAL = SerialPort::new(&allocator).into();
         USB_BUS = UsbDeviceBuilder::new(&allocator, blaster::ALTERA_BLASTER_USB_VID_PID)
             .manufacturer("Arduino LLC")
             .product("Arduino MKR Vidor 4000")
@@ -108,34 +105,16 @@ fn USB() {
                 usb_dev.poll(&mut [blaster]);
                 if let Ok(_amount) = blaster.read() {
                     LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                } else {
+                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
                 }
-                // if let Ok(_amount) = blaster.write(true) {
-                //     LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                // } else {
-                //     LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                // }
+                // blaster.write(true).ok();
+                if let Ok(_amount) = blaster.write(true) {
+                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                } else {
+                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                }
             });
-            // USB_SERIAL.as_mut().map(|serial| {
-            //     usb_dev.poll(&mut [serial]);
-            //     let mut buf = [0u8; 64];
-
-            //     if let Ok(count) = serial.read(&mut buf) {
-            //         for (i, c) in buf.iter().enumerate() {
-            //             if i > count {
-            //                 break;
-            //             }
-            //             match c.clone() as char {
-            //                 'H' => {
-            //                     HIGH = true;
-            //                 }
-            //                 'L' => {
-            //                     HIGH = false;
-            //                 }
-            //                 _ => {}
-            //             }
-            //         }
-            //     };
-            // });
         });
     };
 }

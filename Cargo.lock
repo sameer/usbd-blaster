@@ -12,7 +12,7 @@ dependencies = [
 [[package]]
 name = "arduino_mkrvidor4000"
 version = "0.1.0"
-source = "git+https://github.com/sameer/atsamd.git#7923accdda2311bc692924806790090cafa1c4ff"
+source = "git+https://github.com/sameer/atsamd.git#6eca3237008b390eea322752e140057ca0143704"
 dependencies = [
  "atsamd-hal",
  "cortex-m",
@@ -20,7 +20,7 @@ dependencies = [
  "embedded-hal",
  "nb",
  "panic-halt",
- "usb-device",
+ "usb-device 0.2.5 (git+https://github.com/sameer/usb-device.git)",
 ]
 
 [[package]]
@@ -43,7 +43,7 @@ dependencies = [
 [[package]]
 name = "atsamd-hal"
 version = "0.8.2"
-source = "git+https://github.com/sameer/atsamd.git#7923accdda2311bc692924806790090cafa1c4ff"
+source = "git+https://github.com/sameer/atsamd.git#6eca3237008b390eea322752e140057ca0143704"
 dependencies = [
  "atsamd21g18a",
  "bitfield",
@@ -52,7 +52,7 @@ dependencies = [
  "nb",
  "paste",
  "rand_core",
- "usb-device",
+ "usb-device 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "vcell",
  "void",
 ]
@@ -60,7 +60,7 @@ dependencies = [
 [[package]]
 name = "atsamd21g18a"
 version = "0.6.0"
-source = "git+https://github.com/sameer/atsamd.git#7923accdda2311bc692924806790090cafa1c4ff"
+source = "git+https://github.com/sameer/atsamd.git#6eca3237008b390eea322752e140057ca0143704"
 dependencies = [
  "bare-metal",
  "cortex-m",
@@ -269,6 +269,11 @@ checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 [[package]]
 name = "usb-device"
 version = "0.2.5"
+source = "git+https://github.com/sameer/usb-device.git#4d5e55b651360dbd0dbb124dd3e869dd6035a5cd"
+
+[[package]]
+name = "usb-device"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e5e2b9ba23f0d9ef7a34e498b6581c9d67944a1916542bfc7238bf1dc0d6acd"
 
@@ -280,18 +285,6 @@ dependencies = [
  "arrayvec",
  "cortex-m",
  "cortex-m-rt",
- "usbd-serial",
-]
-
-[[package]]
-name = "usbd-serial"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b45051be4bc25e6f85caacb1d3f45ace644fcc6e662b3d976330912542b7f69e"
-dependencies = [
- "embedded-hal",
- "nb",
- "usb-device",
 ]
 
 [[package]]

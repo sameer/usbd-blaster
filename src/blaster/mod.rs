@@ -24,7 +24,6 @@ pub struct USBBlaster<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> USBBlaster<'a, B> {
-    const BLASTER_HEARTBEAT_TIME: u16 = 10;
     pub fn new(
         alloc: &'a UsbBusAllocator<B>,
         tdi: hal::gpio::Pa12<hal::gpio::Output<hal::gpio::PushPull>>,
@@ -86,10 +85,10 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
                 }
             }
         }
-        res
         /* Reset the control token to inform upper layer that a transfer is ongoing */
         // TODO: should this be enabled? Testing needed
         // self.send_ready = false;
+        res
     }
 
     pub fn handle(&mut self) {
