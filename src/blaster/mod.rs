@@ -108,7 +108,7 @@ where
     fn reset(&mut self) {
         self.class.reset();
         self.port.reset();
-        self.first_send = false;
+        self.first_send = true;
         self.send_ready = true;
         self.send_buffer.clear();
         self.recv_buffer.clear();
