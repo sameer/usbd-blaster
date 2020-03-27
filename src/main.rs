@@ -80,6 +80,7 @@ fn main() -> ! {
             .product("Arduino MKR Vidor 4000")
             .serial_number("12345678")
             .device_release(0x0400)
+            .supports_remote_wakeup(true)
             .max_power(500)
             .build()
             .into();

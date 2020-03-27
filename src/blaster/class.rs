@@ -32,10 +32,10 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                     xfer.accept_with(&[ROM[addr], ROM[addr + 1]]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
-                    xfer.accept_with(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
+                    xfer.accept_with_static(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_LAT_TIMER => {
-                    xfer.accept_with(&Self::FTDI_LAT_TIMER_DUMMY).unwrap();
+                    xfer.accept_with_static(&Self::FTDI_LAT_TIMER_DUMMY).unwrap();
                 },
                 Self::FTDI_VEN_REQ_RESET => {
                     self.reset();
@@ -44,7 +44,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                 Self::FTDI_VEN_REQ_SET_FLOW_CTRL => {},
                 Self::FTDI_VEN_REQ_SET_MODEM_CTRL => {},
                 _ => {
-                    xfer.accept_with(&[0u8; 2]).unwrap();
+                    xfer.accept_with_static(&[0u8; 2]).unwrap();
                 }
             }
         } else {
@@ -60,6 +60,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
             return;
         }
         if req.request_type == RequestType::Vendor {
+            // sendZLP equivalent
             xfer.accept().unwrap();
         } else {
             xfer.reject().unwrap();
