@@ -36,10 +36,6 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                     xfer.accept_with_static(&Self::FTDI_LAT_TIMER_DUMMY)
                         .unwrap();
                 }
-                Self::FTDI_VEN_REQ_RESET => {
-                    self.reset();
-                    xfer.accept_with_static(&[0u8; 2]).unwrap();
-                }
                 _ => {
                     xfer.accept_with_static(&[0u8; 2]).unwrap();
                 }
@@ -48,41 +44,10 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
             xfer.reject().ok();
         }
     }
-
-    fn control_out(&mut self, xfer: ControlOut<B>) {
-        let req = xfer.request();
-        if req.request_type == RequestType::Vendor {
-            // sendZLP equivalent
-            match req.request {
-                Self::FTDI_VEN_REQ_RESET => {
-                    match req.value {
-                        0 => self.reset(),
-                        1 => {
-                            // self.read_ep.clear()
-                        }
-                        2 => {
-                            // self.write_ep.clear()
-                        }
-                        _ => {}
-                    }
-                    xfer.accept().unwrap();
-                }
-                Self::FTDI_VEN_REQ_WR_EEPROM => {
-                    xfer.reject().unwrap();
-                }
-                Self::FTDI_VEN_REQ_ES_EEPROM => {
-                    xfer.reject().unwrap();
-                }
-                _ => {
-                    xfer.accept().unwrap();
-                }
-            }
-        }
-    }
 }
 
 impl<B: UsbBus> BlasterClass<'_, B> {
-    const FTDI_VEN_REQ_RESET: u8 = 0x00;
+    pub const FTDI_VEN_REQ_RESET: u8 = 0x00;
     const FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
     const FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
     const FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
@@ -95,8 +60,8 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     const FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
     const FTDI_VEN_REQ_RD_PINS: u8 = 0x0C;
     const FTDI_VEN_REQ_RD_EEPROM: u8 = 0x90;
-    const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
-    const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
+    pub const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
+    pub const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
 
     pub const FTDI_MODEM_STA_DUMMY: [u8; 2] = [0x01, 0x60];
 

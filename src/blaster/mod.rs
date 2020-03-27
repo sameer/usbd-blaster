@@ -1,5 +1,5 @@
 use arrayvec::ArrayVec;
-use hal::usb::usb_device::{class_prelude::*, prelude::*, Result};
+use hal::usb::usb_device::{class_prelude::*, control::RequestType, prelude::*, Result};
 
 mod class;
 mod ft245;
@@ -119,7 +119,34 @@ where
     }
 
     fn control_out(&mut self, xfer: ControlOut<B>) {
-        self.class.control_out(xfer);
+        let req = xfer.request();
+        if req.request_type == RequestType::Vendor {
+            // sendZLP equivalent
+            match req.request {
+                BlasterClass::<'_, B>::FTDI_VEN_REQ_RESET => {
+                    match req.value {
+                        0 => self.reset(),
+                        1 => {
+                            // self.read_ep.clear()
+                        }
+                        2 => {
+                            // self.write_ep.clear()
+                        }
+                        _ => {}
+                    }
+                    xfer.accept().unwrap();
+                }
+                BlasterClass::<'_, B>::FTDI_VEN_REQ_WR_EEPROM => {
+                    xfer.reject().unwrap();
+                }
+                BlasterClass::<'_, B>::FTDI_VEN_REQ_ES_EEPROM => {
+                    xfer.reject().unwrap();
+                }
+                _ => {
+                    xfer.accept().unwrap();
+                }
+            }
+        }
     }
 
     // fn endpoint_out(&mut self, addr: EndpointAddress) {
