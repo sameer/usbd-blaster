@@ -18,7 +18,7 @@ use hal::usb::UsbBus;
 mod blaster;
 
 // #[link_section = "FLASH_FPGA"]
-// pub const FLASH: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
+// const FLASH_FPGA: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
 
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
 static mut USB_BLASTER: Option<blaster::USBBlaster<UsbBus>> = None;
@@ -89,8 +89,18 @@ fn main() -> ! {
     loop {
         cortex_m::interrupt::free(|_| unsafe {
             USB_BLASTER.as_mut().map(|blaster| {
+                if let Ok(_amount) = blaster.read() {
+                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                } else {
+                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                }
                 blaster.handle();
-            });
+                if let Ok(_amount) = blaster.write(false) {
+                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
+                } else {
+                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
+                }
+            })
         });
     }
 }
@@ -103,17 +113,6 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
-                if let Ok(_amount) = blaster.read() {
-                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                } else {
-                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                }
-                // blaster.write(true).ok();
-                if let Ok(_amount) = blaster.write(true) {
-                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                } else {
-                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                }
             });
         });
     };

@@ -5,7 +5,7 @@ authors = ["Sameer Puri <sameer@users.noreply.github.com>"]
 edition = "2018"
 
 [profile.release]
-opt-level = 'z'  # Optimize for size.
+# opt-level = 'z'
 lto = true
 codegen-units = 1
 

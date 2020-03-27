@@ -4,8 +4,8 @@ use super::ft245::ROM;
 
 pub struct BlasterClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
-    write_ep: EndpointIn<'a, B>,
-    read_ep: EndpointOut<'a, B>,
+    pub read_ep: EndpointOut<'a, B>,
+    pub write_ep: EndpointIn<'a, B>,
 }
 
 impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, B> {
@@ -20,50 +20,63 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
 
     fn control_in(&mut self, xfer: ControlIn<B>) {
         let req = xfer.request();
-        if !(req.recipient == control::Recipient::Interface
-            && req.index == u8::from(self.iface) as u16)
-        {
+        if req.recipient == control::Recipient::Device && req.request_type != RequestType::Vendor {
             return;
-        }
-        if req.request_type == RequestType::Vendor {
+        } else if req.request_type == RequestType::Vendor {
             match req.request {
                 Self::FTDI_VEN_REQ_RD_EEPROM => {
-                    let addr = (((req.index >> 8 ) & 0x3f) << 1) as usize;
+                    let addr = (((req.index >> 8) & 0x3f) << 1) as usize;
                     xfer.accept_with(&[ROM[addr], ROM[addr + 1]]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
-                    xfer.accept_with_static(&Self::FTDI_MODEM_STA_DUMMY).unwrap();
+                    xfer.accept_with_static(&Self::FTDI_MODEM_STA_DUMMY)
+                        .unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_LAT_TIMER => {
-                    xfer.accept_with_static(&Self::FTDI_LAT_TIMER_DUMMY).unwrap();
-                },
+                    xfer.accept_with_static(&Self::FTDI_LAT_TIMER_DUMMY)
+                        .unwrap();
+                }
                 Self::FTDI_VEN_REQ_RESET => {
                     self.reset();
-                },
-                Self::FTDI_VEN_REQ_SET_BAUDRATE => {},
-                Self::FTDI_VEN_REQ_SET_FLOW_CTRL => {},
-                Self::FTDI_VEN_REQ_SET_MODEM_CTRL => {},
+                    xfer.accept_with_static(&[0u8; 2]).unwrap();
+                }
                 _ => {
                     xfer.accept_with_static(&[0u8; 2]).unwrap();
                 }
             }
         } else {
-            xfer.reject().unwrap();
+            xfer.reject().ok();
         }
     }
 
     fn control_out(&mut self, xfer: ControlOut<B>) {
         let req = xfer.request();
-        if !(req.recipient == control::Recipient::Interface
-            && req.index == u8::from(self.iface) as u16)
-        {
-            return;
-        }
         if req.request_type == RequestType::Vendor {
             // sendZLP equivalent
-            xfer.accept().unwrap();
-        } else {
-            xfer.reject().unwrap();
+            match req.request {
+                Self::FTDI_VEN_REQ_RESET => {
+                    match req.value {
+                        0 => self.reset(),
+                        1 => {
+                            // self.read_ep.clear()
+                        }
+                        2 => {
+                            // self.write_ep.clear()
+                        }
+                        _ => {}
+                    }
+                    xfer.accept().unwrap();
+                }
+                Self::FTDI_VEN_REQ_WR_EEPROM => {
+                    xfer.reject().unwrap();
+                }
+                Self::FTDI_VEN_REQ_ES_EEPROM => {
+                    xfer.reject().unwrap();
+                }
+                _ => {
+                    xfer.accept().unwrap();
+                }
+            }
         }
     }
 }
@@ -86,6 +99,8 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
 
     pub const FTDI_MODEM_STA_DUMMY: [u8; 2] = [0x01, 0x60];
+
+    /// Must be a value between 1 and 255
     const FTDI_LAT_TIMER_DUMMY: [u8; 1] = ['6' as u8];
 
     pub fn new(
@@ -95,18 +110,17 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     ) -> BlasterClass<'_, B> {
         BlasterClass {
             iface: alloc.interface(),
-            write_ep: alloc
+            /// https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L178
+            read_ep: alloc
                 .alloc(
-                    // None,
                     Some(0x81.into()),
                     EndpointType::Bulk,
                     max_write_packet_size,
                     1,
                 )
                 .expect("alloc_ep failed"),
-            read_ep: alloc
+            write_ep: alloc
                 .alloc(
-                    // None,
                     Some(0x02.into()),
                     EndpointType::Bulk,
                     max_read_packet_size,

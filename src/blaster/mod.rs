@@ -12,7 +12,7 @@ pub const ALTERA_BLASTER_USB_VID_PID: UsbVidPid = UsbVidPid(0x09FB, 0x6001);
 // Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
 // This will change the endpoint size (OS side) so it's less likely to send more than 64 bytes in a single chunk.
 const BLASTER_WRITE_SIZE: usize = 64;
-const BLASTER_READ_SIZE: usize = 32;
+const BLASTER_READ_SIZE: usize = 64;
 
 pub struct USBBlaster<'a, B: UsbBus> {
     class: BlasterClass<'a, B>,
@@ -42,7 +42,6 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
     }
 
     pub fn read(&mut self) -> Result<usize> {
-        self.send_ready = true;
         if self.recv_buffer.len() > 0 {
             return Ok(0);
         }
@@ -50,6 +49,7 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
         unsafe {
             self.recv_buffer.set_len(amount);
         }
+        // self.send_ready = true;
         Ok(amount)
     }
 
@@ -108,7 +108,7 @@ where
     fn reset(&mut self) {
         self.class.reset();
         self.port.reset();
-        self.first_send = true;
+        self.first_send = false;
         self.send_ready = true;
         self.send_buffer.clear();
         self.recv_buffer.clear();
@@ -121,4 +121,16 @@ where
     fn control_out(&mut self, xfer: ControlOut<B>) {
         self.class.control_out(xfer);
     }
+
+    // fn endpoint_out(&mut self, addr: EndpointAddress) {
+    //     if self.class.read_ep.address() == addr {
+    //         self.read().ok();
+    //     }
+    // }
+
+    // fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
+    //     if self.class.write_ep.address() == addr {
+    //         self.send_ready = true;
+    //     }
+    // }
 }

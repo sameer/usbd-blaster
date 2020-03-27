@@ -12,7 +12,7 @@ dependencies = [
 [[package]]
 name = "arduino_mkrvidor4000"
 version = "0.1.0"
-source = "git+https://github.com/sameer/atsamd.git#6eca3237008b390eea322752e140057ca0143704"
+source = "git+https://github.com/sameer/atsamd.git#5b47dbf1d2117b42adbfe5439c692581ac80bc9a"
 dependencies = [
  "atsamd-hal",
  "cortex-m",
@@ -20,7 +20,6 @@ dependencies = [
  "embedded-hal",
  "nb",
  "panic-halt",
- "usb-device 0.2.5 (git+https://github.com/sameer/usb-device.git)",
 ]
 
 [[package]]
@@ -43,7 +42,7 @@ dependencies = [
 [[package]]
 name = "atsamd-hal"
 version = "0.8.2"
-source = "git+https://github.com/sameer/atsamd.git#6eca3237008b390eea322752e140057ca0143704"
+source = "git+https://github.com/sameer/atsamd.git#5b47dbf1d2117b42adbfe5439c692581ac80bc9a"
 dependencies = [
  "atsamd21g18a",
  "bitfield",
@@ -52,7 +51,7 @@ dependencies = [
  "nb",
  "paste",
  "rand_core",
- "usb-device 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "usb-device",
  "vcell",
  "void",
 ]
@@ -60,7 +59,7 @@ dependencies = [
 [[package]]
 name = "atsamd21g18a"
 version = "0.6.0"
-source = "git+https://github.com/sameer/atsamd.git#6eca3237008b390eea322752e140057ca0143704"
+source = "git+https://github.com/sameer/atsamd.git#5b47dbf1d2117b42adbfe5439c692581ac80bc9a"
 dependencies = [
  "bare-metal",
  "cortex-m",
@@ -265,11 +264,6 @@ name = "unicode-xid"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
-
-[[package]]
-name = "usb-device"
-version = "0.2.5"
-source = "git+https://github.com/sameer/usb-device.git#4d5e55b651360dbd0dbb124dd3e869dd6035a5cd"
 
 [[package]]
 name = "usb-device"
