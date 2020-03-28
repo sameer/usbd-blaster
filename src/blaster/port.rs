@@ -123,6 +123,7 @@ impl Port {
         }
     }
 
+    #[inline]
     pub fn handle(
         &mut self,
         recv_buf: &mut [u8],
@@ -131,11 +132,7 @@ impl Port {
         send_len: &mut usize,
     ) {
         let mut i = 0usize;
-        while i < *recv_len {
-            if *send_len + 1 == send_buf.len() {
-                break;
-            }
-
+        while i < *recv_len && *send_len < send_buf.len() {
             let d = recv_buf[i];
             if self.shift_count == 0 {
                 // bit-bang mode (default)
@@ -162,10 +159,12 @@ impl Port {
             }
             i += 1;
         }
-        for j in 0..(*recv_len - i) {
-            recv_buf[j] = recv_buf[j + i];
+        if i > 0 {
+            for j in 0..(*recv_len - i) {
+                recv_buf[j] = recv_buf[j + i];
+            }
+            *recv_len -= i;
         }
-        *recv_len -= i;
     }
 
     fn advance(&mut self, mode: bool, _drive_signal: bool) {

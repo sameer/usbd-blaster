@@ -43,14 +43,14 @@ fn main() -> ! {
     let usb_gclk = clocks
         .configure_gclk_divider_and_source(GEN_A::GCLK6, 1, SRC_A::DFLL48M, true)
         .unwrap();
-    let usb_clock = &clocks.usb(&usb_gclk).unwrap();
+    let usb_clock = clocks.usb(&usb_gclk).unwrap();
     core.SYST.set_clock_source(SystClkSource::Core);
 
     let mut pins = hal::Pins::new(peripherals.PORT);
 
     let allocator = unsafe {
         USB_ALLOCATOR = UsbBusAllocator::new(UsbBus::new(
-            usb_clock,
+            &usb_clock,
             &mut peripherals.PM,
             pins.usb_n.into_function(&mut pins.port),
             pins.usb_p.into_function(&mut pins.port),
@@ -85,11 +85,10 @@ fn main() -> ! {
     }
 
     loop {
-        cortex_m::interrupt::free(|_| unsafe {
-            USB_BLASTER.as_mut().map(|blaster| {
-                blaster.handle();
-            });
-        });
+        // cortex_m::interrupt::free(|_| unsafe {
+        //     USB_BLASTER.as_mut().map(|blaster| {
+        //     });
+        // });
     }
 }
 
@@ -100,6 +99,7 @@ fn USB() {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
                 blaster.read().ok();
+                blaster.handle();
                 blaster.write(false).ok();
             });
         });
