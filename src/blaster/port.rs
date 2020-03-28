@@ -32,45 +32,36 @@ enum JTAGState {
     UpdateDR,
     Undefined,
 }
-
+use JTAGState::*;
 impl JTAGState {
+    const STATE_MACHINE: [[JTAGState; 2]; 16] = [
+        /*-State-      -mode= '0'-    -mode= '1'- */
+        /*RESET     */ [RunIdle, Reset],
+        /*RUNIDLE   */ [RunIdle, SelectDR],
+        /*SELECTIR  */ [CaptureIR, Reset],
+        /*CAPTURE_IR*/ [ShiftIR, Exit1IR],
+        /*SHIFT_IR  */ [ShiftIR, Exit1IR],
+        /*EXIT1_IR  */ [PauseIR, UpdateIR],
+        /*PAUSE_IR  */ [PauseIR, Exit2IR],
+        /*EXIT2_IR  */ [ShiftIR, UpdateIR],
+        /*UPDATE_IR */ [RunIdle, SelectDR],
+        /*SELECT_DR */ [CaptureDR, SelectIR],
+        /*CAPTURE_DR*/ [ShiftDR, Exit1DR],
+        /*SHIFT_DR  */ [ShiftDR, Exit1DR],
+        /*EXIT1_DR  */ [PauseDR, UpdateDR],
+        /*PAUSE_DR  */ [PauseDR, Exit2DR],
+        /*EXIT2_DR  */ [ShiftDR, UpdateDR],
+        /*UPDATE_DR */ [RunIdle, SelectDR],
+    ];
     fn advance(&self, mode: bool) -> JTAGState {
-        use JTAGState::*;
-        match (self, mode) {
-            (Reset, false) => RunIdle,
-            (RunIdle, true) => SelectDR,
-            (SelectIR, false) => CaptureIR,
-            (SelectIR, true) => Reset,
-            (CaptureIR, false) => ShiftIR,
-            (CaptureIR, true) => Exit1IR,
-            (ShiftIR, true) => Exit1IR,
-            (Exit1IR, false) => PauseIR,
-            (Exit1IR, true) => UpdateIR,
-            (PauseIR, true) => Exit2IR,
-            (Exit2IR, false) => ShiftIR,
-            (Exit2IR, true) => UpdateIR,
-            (UpdateIR, false) => RunIdle,
-            (UpdateIR, true) => SelectDR,
-            (SelectDR, false) => CaptureDR,
-            (SelectDR, true) => SelectIR,
-            (CaptureDR, false) => ShiftDR,
-            (CaptureDR, true) => Exit1DR,
-            (ShiftDR, true) => Exit1DR,
-            (Exit1DR, false) => PauseDR,
-            (Exit1DR, true) => UpdateDR,
-            (PauseDR, true) => Exit2DR,
-            (Exit2DR, false) => ShiftDR,
-            (Exit2DR, true) => UpdateDR,
-            (UpdateDR, false) => RunIdle,
-            (UpdateDR, true) => SelectDR,
-            _ => self.clone(),
-        }
+        let idx: u8 = self.clone().into();
+        let mode = if mode { 1 } else { 0 };
+        Self::STATE_MACHINE[idx as usize][mode].clone()
     }
 }
 
 impl Into<u8> for JTAGState {
     fn into(self) -> u8 {
-        use JTAGState::*;
         match self {
             Reset => 0,
             RunIdle => 1,
@@ -177,37 +168,37 @@ impl Port {
         *recv_len -= i;
     }
 
-    fn advance(&mut self, mode: bool, drive_signal: bool) {
-        if drive_signal {
-            if mode {
-                self.tms.set_high().unwrap();
-            } else {
-                self.tms.set_low().unwrap();
-            }
-            self.tck.set_high().unwrap();
-            self.tck.set_low().unwrap();
-        }
+    fn advance(&mut self, mode: bool, _drive_signal: bool) {
+        // if drive_signal {
+        //     if mode {
+        //         self.tms.set_high().unwrap();
+        //     } else {
+        //         self.tms.set_low().unwrap();
+        //     }
+        //     self.tck.set_high().unwrap();
+        //     self.tck.set_low().unwrap();
+        // }
         self.jtag_state = self.jtag_state.advance(mode);
     }
 
-    pub fn set_state(&mut self, state: u8) {
-        if (state & Self::BLASTER_STA_OUT_TDI) >> 4 != 0 {
+    pub fn set_state(&mut self, d: u8) {
+        if (d & Self::BLASTER_STA_OUT_TDI) >> 4 != 0 {
             self.tdi.set_high().unwrap();
         } else {
             self.tdi.set_low().unwrap();
         }
-        let tms_state = state & Self::BLASTER_STA_OUT_TMS != 0;
+        let tms_state = ((d & Self::BLASTER_STA_OUT_TMS) >> 1) != 0;
         if tms_state {
             self.tms.set_high().unwrap();
         } else {
             self.tms.set_low().unwrap();
         }
-        let clk = state & Self::BLASTER_STA_OUT_TCK != 0;
-        if self.got_clock && !clk {
+        let clk = d & Self::BLASTER_STA_OUT_TCK;
+        if self.got_clock && clk == 0 {
             self.advance(tms_state, false);
             self.got_clock = false;
         }
-        if clk {
+        if clk == 1 {
             self.got_clock = true;
             self.tck.set_high().unwrap();
         } else {

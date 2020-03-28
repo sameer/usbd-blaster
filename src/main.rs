@@ -83,18 +83,15 @@ fn main() -> ! {
         core.NVIC.set_priority(interrupt::USB, 1);
         NVIC::unmask(interrupt::USB);
     }
-    // let mut delay = Delay::new(core.SYST, &mut clocks);
 
     loop {
-        // cortex_m::interrupt::free(|_| unsafe {
-        //     USB_BLASTER.as_mut().map(|blaster| {
-        //         blaster.handle();
-        //     });
-        // });
+        cortex_m::interrupt::free(|_| unsafe {
+            USB_BLASTER.as_mut().map(|blaster| {
+                blaster.handle();
+            });
+        });
     }
 }
-
-static mut HIGH: bool = false;
 
 #[interrupt]
 fn USB() {
@@ -102,21 +99,8 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
-                if let Ok(amount) = blaster.read() {
-                    if amount > 0 {
-                        LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                    } else {
-                        LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                    }
-                } else {
-                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                }
-                blaster.handle();
-                if let Ok(_amount) = blaster.write(true) {
-                    LED.as_mut().map(|ref mut led| led.set_high().unwrap());
-                } else {
-                    LED.as_mut().map(|ref mut led| led.set_low().unwrap());
-                }
+                blaster.read().ok();
+                blaster.write(false).ok();
             });
         });
     };
