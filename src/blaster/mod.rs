@@ -47,14 +47,11 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
             return Err(UsbError::WouldBlock)
         }
         let amount = self.class.read(&mut self.recv_buffer[self.recv_len..])?;
-        self.recv_len = amount;
+        self.recv_len += amount;
         Ok(amount)
     }
 
     pub fn write(&mut self, heartbeat: bool) -> Result<usize> {
-        // if !self.send_ready {
-        //     return Err(UsbError::WouldBlock);
-        // }
         if !(self.send_len != 0 || self.first_send || heartbeat) {
             return Err(UsbError::WouldBlock);
         }
@@ -63,23 +60,22 @@ impl<'a, B: UsbBus> USBBlaster<'a, B> {
         self.first_send = false;
         let res = self
             .class
-            .write(&self.send_buffer[0..self.send_len + 2]);
+            .write(&self.send_buffer[..self.send_len + 2]);
         if res.is_ok() {
             let amount = *res.as_ref().unwrap();
             if amount <= 2 {
                 if amount == 1 {
                     // TODO: how to handle a half-sent STA?
-                    // panic!("Cannot recover from half-sent status");
+                    panic!("Cannot recover from half-sent status");
                 }
             } else {
-                for i in 0..(self.send_len - amount - 2) {
-                    self.send_buffer[i + 2] = self.send_buffer[i + 2 + (amount - 2)];
+                let actual_amount = amount - 2;
+                for i in 0..(self.send_len - actual_amount) {
+                    self.send_buffer[i + 2] = self.send_buffer[i + 2 + actual_amount];
                 }
-                self.send_len -= amount - 2;
+                self.send_len -= actual_amount;
             }
         }
-        /* Reset the control token to inform upper layer that a transfer is ongoing */
-        // self.send_ready = false;
         res
     }
 

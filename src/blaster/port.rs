@@ -30,11 +30,11 @@ enum JTAGState {
     PauseDR,
     Exit2DR,
     UpdateDR,
-    Undefined,
+    // Undefined,
 }
 use JTAGState::*;
 impl JTAGState {
-    const STATE_MACHINE: [[JTAGState; 2]; 16] = [
+    const STATE_MACHINE: [[Self; 2]; 16] = [
         /*-State-      -mode= '0'-    -mode= '1'- */
         /*RESET     */ [RunIdle, Reset],
         /*RUNIDLE   */ [RunIdle, SelectDR],
@@ -53,7 +53,7 @@ impl JTAGState {
         /*EXIT2_DR  */ [ShiftDR, UpdateDR],
         /*UPDATE_DR */ [RunIdle, SelectDR],
     ];
-    fn advance(&self, mode: bool) -> JTAGState {
+    fn advance(&self, mode: bool) -> Self {
         let idx: u8 = self.clone().into();
         let mode = if mode { 1 } else { 0 };
         Self::STATE_MACHINE[idx as usize][mode].clone()
@@ -79,8 +79,14 @@ impl Into<u8> for JTAGState {
             PauseDR => 13,
             Exit2DR => 14,
             UpdateDR => 15,
-            Undefined => 16,
+            // Undefined => 16,
         }
+    }
+}
+
+impl Default for JTAGState {
+    fn default() -> Self {
+        Self::Reset
     }
 }
 
@@ -136,9 +142,8 @@ impl Port {
             let d = recv_buf[i];
             if self.shift_count == 0 {
                 // bit-bang mode (default)
-                let shift_en = (d & Self::BLASTER_STA_SHIFT) != 0;
                 self.read_en = (d & Self::BLASTER_STA_READ) != 0;
-                if shift_en {
+                if d & Self::BLASTER_STA_SHIFT != 0 { // Swap to shift mode for 0 to 63 shifts
                     self.shift_count = d & Self::BLASTER_STA_CNT_MASK;
                 } else {
                     self.set_state(d);
@@ -159,7 +164,7 @@ impl Port {
             }
             i += 1;
         }
-        if i > 0 {
+        if i != 0 {
             for j in 0..(*recv_len - i) {
                 recv_buf[j] = recv_buf[j + i];
             }
@@ -167,16 +172,7 @@ impl Port {
         }
     }
 
-    fn advance(&mut self, mode: bool, _drive_signal: bool) {
-        // if drive_signal {
-        //     if mode {
-        //         self.tms.set_high().unwrap();
-        //     } else {
-        //         self.tms.set_low().unwrap();
-        //     }
-        //     self.tck.set_high().unwrap();
-        //     self.tck.set_low().unwrap();
-        // }
+    fn advance(&mut self, mode: bool) {
         self.jtag_state = self.jtag_state.advance(mode);
     }
 
@@ -186,18 +182,18 @@ impl Port {
         } else {
             self.tdi.set_low().unwrap();
         }
-        let tms_state = ((d & Self::BLASTER_STA_OUT_TMS) >> 1) != 0;
-        if tms_state {
+        let tms = ((d & Self::BLASTER_STA_OUT_TMS) >> 1) != 0;
+        if tms {
             self.tms.set_high().unwrap();
         } else {
             self.tms.set_low().unwrap();
         }
-        let clk = d & Self::BLASTER_STA_OUT_TCK;
-        if self.got_clock && clk == 0 {
-            self.advance(tms_state, false);
+        let clk = d & Self::BLASTER_STA_OUT_TCK != 0;
+        if self.got_clock && !clk {
+            self.advance(tms);
             self.got_clock = false;
         }
-        if clk == 1 {
+        if clk {
             self.got_clock = true;
             self.tck.set_high().unwrap();
         } else {
@@ -210,7 +206,7 @@ impl Port {
         if self.tdo.is_high().unwrap() {
             d |= 1 << Self::BLASTER_STA_IN_TDO_BIT;
         }
-        d |= 1 << Self::BLASTER_STA_IN_DATAOUT_BIT;
+        // d |= 1 << Self::BLASTER_STA_IN_DATAOUT_BIT;
         d
     }
 
@@ -247,7 +243,7 @@ impl Port {
             self.tck.set_high().unwrap();
             shift_data >>= 1;
             if din {
-                shift_data |= 1u8 << 7;
+                shift_data |= 0b1000_0000u8;
             }
             self.tck.set_low().unwrap();
         }

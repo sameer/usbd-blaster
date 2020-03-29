@@ -82,12 +82,7 @@ fn main() -> ! {
         NVIC::unmask(interrupt::USB);
     }
 
-    loop {
-        // cortex_m::interrupt::free(|_| unsafe {
-        //     USB_BLASTER.as_mut().map(|blaster| {
-        //     });
-        // });
-    }
+    loop {}
 }
 
 #[interrupt]
@@ -98,7 +93,7 @@ fn USB() {
                 usb_dev.poll(&mut [blaster]);
                 blaster.read().ok();
                 blaster.handle();
-                blaster.write(false).ok();
+                blaster.write(true).ok();
             });
         });
     };

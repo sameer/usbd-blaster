@@ -13,10 +13,10 @@ pub struct BlasterClass<'a, B: UsbBus> {
 impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, B> {
     fn get_configuration_descriptors(&self, w: &mut DescriptorWriter) -> Result<()> {
         w.interface(self.iface, 0xFF, 0xFF, 0xFF)?;
+        // w.endpoint(&self.fake_read_ep)?;
         w.endpoint(&self.write_ep)?;
         w.endpoint(&self.read_ep)?;
-        w.endpoint(&self.fake_read_ep)?;
-        w.endpoint(&self.fake_write_ep)?;
+        // w.endpoint(&self.fake_write_ep)?;
         Ok(())
     }
 
@@ -80,8 +80,26 @@ impl<B: UsbBus> BlasterClass<'_, B> {
         BlasterClass {
             iface: alloc.interface(),
             /// See INTERFACE_A: https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L178
+            // fake_read_ep: alloc.bulk(max_read_packet_size),
+            // write_ep: alloc.bulk(max_write_packet_size),
+            // fake_write_ep: alloc.bulk(max_write_packet_size),
             // read_ep: alloc.bulk(max_read_packet_size),
-            // write_ep: alloc.bulk(max_write_packet_size)
+                    fake_read_ep: alloc
+                .alloc(
+                    Some(EndpointAddress::from_parts(0x01, UsbDirection::Out)),
+                    EndpointType::Bulk,
+                    max_write_packet_size,
+                    1,
+                )
+                .expect("alloc_ep failed"),
+            write_ep: alloc
+                .alloc(
+                    Some(EndpointAddress::from_parts(0x01, UsbDirection::In)),
+                    EndpointType::Bulk,
+                    max_write_packet_size,
+                    1,
+                )
+                .expect("alloc_ep failed"),
             read_ep: alloc
                 .alloc(
                     Some(EndpointAddress::from_parts(0x02, UsbDirection::Out)),
@@ -94,23 +112,7 @@ impl<B: UsbBus> BlasterClass<'_, B> {
                 .alloc(
                     Some(EndpointAddress::from_parts(0x02, UsbDirection::In)),
                     EndpointType::Bulk,
-                    max_write_packet_size,
-                    1,
-                )
-                .expect("alloc_ep failed"),
-            fake_read_ep: alloc
-                .alloc(
-                    Some(EndpointAddress::from_parts(0x01, UsbDirection::Out)),
-                    EndpointType::Bulk,
                     max_read_packet_size,
-                    1,
-                )
-                .expect("alloc_ep failed"),
-            write_ep: alloc
-                .alloc(
-                    Some(EndpointAddress::from_parts(0x01, UsbDirection::In)),
-                    EndpointType::Bulk,
-                    max_write_packet_size,
                     1,
                 )
                 .expect("alloc_ep failed"),

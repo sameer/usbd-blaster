@@ -29,5 +29,12 @@
             - clear pending on intflag (?)
             - flush endpoints (host behavior compensation)
     - [ ] Attach/enable
-        - [ ] UsbBus::enable does not enable start of frame interrupt
+        - [x] UsbBus::enable does not enable start of frame interrupt
+            - Arduino uses SoF interrupt to flash LEDs on boards with TX/RX LEDs
         - Detach clear_bit correct
+    - [ ] Polling
+        - idek
+    - [ ] PluggableUSB vs usb-device: blaster implementation
+        - no handleEndpoint -- just does everything in the main program loop it seems, without interrupts
+    - [ ] Implementation specific values
+        - Arduino has pack messages to aggregate sending (unused by blaster I guess)
