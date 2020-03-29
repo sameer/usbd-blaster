@@ -17,4 +17,4 @@ cortex-m-rt = "*"
 [dependencies.arduino_mkrvidor4000]
 version = "~0.1"
 git = "https://github.com/sameer/atsamd.git"
-features = ["default", "usb", "unproven"]
+features = ["default", "usb", "unproven", "enable_fpga_clock"]

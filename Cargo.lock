@@ -12,7 +12,7 @@ dependencies = [
 [[package]]
 name = "arduino_mkrvidor4000"
 version = "0.1.0"
-source = "git+https://github.com/sameer/atsamd.git#5b47dbf1d2117b42adbfe5439c692581ac80bc9a"
+source = "git+https://github.com/sameer/atsamd.git#7742311cbc3bcf75bd756ad0c9e722ed2d877b43"
 dependencies = [
  "atsamd-hal",
  "cortex-m",
@@ -36,7 +36,7 @@ dependencies = [
 [[package]]
 name = "atsamd-hal"
 version = "0.8.2"
-source = "git+https://github.com/sameer/atsamd.git#5b47dbf1d2117b42adbfe5439c692581ac80bc9a"
+source = "git+https://github.com/sameer/atsamd.git#7742311cbc3bcf75bd756ad0c9e722ed2d877b43"
 dependencies = [
  "atsamd21g18a",
  "bitfield",
@@ -53,7 +53,7 @@ dependencies = [
 [[package]]
 name = "atsamd21g18a"
 version = "0.6.0"
-source = "git+https://github.com/sameer/atsamd.git#5b47dbf1d2117b42adbfe5439c692581ac80bc9a"
+source = "git+https://github.com/sameer/atsamd.git#7742311cbc3bcf75bd756ad0c9e722ed2d877b43"
 dependencies = [
  "bare-metal",
  "cortex-m",
