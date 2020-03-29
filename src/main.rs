@@ -37,15 +37,15 @@ fn main() -> ! {
         &mut peripherals.SYSCTRL,
         &mut peripherals.NVMCTRL,
     );
-    let main_clk = clocks.gclk0();
-    let usb_clock = clocks.usb(&main_clk).unwrap();
-    core.SYST.set_clock_source(SystClkSource::Core);
 
     let mut pins = hal::Pins::new(peripherals.PORT);
     // Enable 48MHZ clock output for FPGA
     // https://github.com/arduino/ArduinoCore-samd/blob/master/variants/mkrvidor4000/variant.cpp#L229
     let _gclk: hal::gpio::Pa27<hal::gpio::PfH> = pins.gclk.into_function(&mut pins.port);
 
+    let main_clk = clocks.gclk0();
+    let usb_clock = clocks.usb(&main_clk).unwrap();
+    core.SYST.set_clock_source(SystClkSource::Core);
     let allocator = unsafe {
         USB_ALLOCATOR = UsbBusAllocator::new(UsbBus::new(
             &usb_clock,
@@ -78,7 +78,7 @@ fn main() -> ! {
             .max_power(500)
             .build()
             .into();
-        core.NVIC.set_priority(interrupt::USB, 1);
+        core.NVIC.set_priority(interrupt::USB, 0);
         NVIC::unmask(interrupt::USB);
     }
 
