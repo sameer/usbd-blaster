@@ -29,25 +29,24 @@ static mut LED: Option<hal::gpio::Pb8<hal::gpio::Output<hal::gpio::OpenDrain>>> 
 fn main() -> ! {
     let mut peripherals = Peripherals::take().unwrap();
     let mut core = CorePeripherals::take().unwrap();
-    let mut clocks = GenericClockController::with_internal_32kosc(
+    let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.PM,
         &mut peripherals.SYSCTRL,
         &mut peripherals.NVMCTRL,
     );
-    // FPGA Clock
-    clocks
-        .configure_gclk_divider_and_source(GEN_A::GCLK2, 1, SRC_A::DFLL48M, true)
-        .unwrap();
-    // USB Clock
-    let usb_gclk = clocks
-        .configure_gclk_divider_and_source(GEN_A::GCLK6, 1, SRC_A::DFLL48M, true)
-        .unwrap();
-    let usb_clock = clocks.usb(&usb_gclk).unwrap();
+    let main_clk = clocks.gclk0();
+    let usb_clock = clocks.usb(&main_clk).unwrap();
     core.SYST.set_clock_source(SystClkSource::Core);
 
     let mut pins = hal::Pins::new(peripherals.PORT);
 
+    // Enable FPGA Clock
+    // https://github.com/arduino/ArduinoCore-samd/blob/master/variants/mkrvidor4000/variant.cpp#L229
+    let _gclk: hal::gpio::Pa27<hal::gpio::PfH> = pins.gclk.into_function(&mut pins.port);
+    clocks
+        .configure_gclk_divider_and_source(GEN_A::GCLK2, 1, SRC_A::DFLL48M, true)
+        .unwrap();
     let allocator = unsafe {
         USB_ALLOCATOR = UsbBusAllocator::new(UsbBus::new(
             &usb_clock,
