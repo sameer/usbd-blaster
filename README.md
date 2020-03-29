@@ -1,12 +1,16 @@
 # USB Blaster for Arduino MKR Vidor 4000
 
+## What is this?
+
+A project for the [Arduino MKR Vidor 4000](https://www.arduino.cc/en/Guide/MKRVidor4000) written in [Rust](https://www.rust-lang.org/) that lets you program the onboard [FPGA](https://en.wikipedia.org/wiki/Field-programmable_gate_array) with [Quartus](https://en.wikipedia.org/wiki/Intel_Quartus_Prime).
+
 ## Usage
 
 ### Requirements
 
 * Rust language
 * arm-none-eabi-gcc (ArchLinux users, get gcc-arm-none-eabi-bin)
-* [Atmel SAM flashing tool](https://github.com/shumatech/BOSSA) (aka bossac)
+* [Atmel SAM flashing tool](https://github.com/shumatech/BOSSA) (aka bossac, comes in Arduino tools)
 
 ### Flashing the USB Blaster
 
