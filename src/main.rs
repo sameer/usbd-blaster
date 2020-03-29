@@ -7,11 +7,7 @@ use cortex_m::peripheral::syst::SystClkSource;
 use hal::clock::GenericClockController;
 use hal::entry;
 use hal::gpio::IntoFunction;
-use hal::pac::{
-    gclk::{clkctrl::GEN_A, genctrl::SRC_A},
-    interrupt, CorePeripherals, Peripherals, NVIC,
-};
-use hal::prelude::*;
+use hal::pac::{interrupt, CorePeripherals, Peripherals, NVIC};
 use hal::usb::usb_device::{bus::UsbBusAllocator, prelude::*};
 use hal::usb::UsbBus;
 
