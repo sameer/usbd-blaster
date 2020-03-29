@@ -3,21 +3,29 @@
 
 extern crate arduino_mkrvidor4000 as hal;
 
-use cortex_m::peripheral::syst::SystClkSource;
 use hal::clock::GenericClockController;
 use hal::entry;
-use hal::gpio::IntoFunction;
+use hal::gpio::{Floating, Input, IntoFunction, Output, Pa12, Pa13, Pa14, Pa15, PushPull};
 use hal::pac::{interrupt, CorePeripherals, Peripherals, NVIC};
 use hal::usb::usb_device::{bus::UsbBusAllocator, prelude::*};
 use hal::usb::UsbBus;
 
-mod blaster;
+use usbd_blaster::{Blaster, ALTERA_BLASTER_USB_VID_PID};
 
 // #[link_section = "FLASH_FPGA"]
 // const FLASH_FPGA: [u8; 2 * 1024 * 1024] = [0u8; 2 * 1024 * 1024];
 
 static mut USB_ALLOCATOR: Option<UsbBusAllocator<UsbBus>> = None;
-static mut USB_BLASTER: Option<blaster::USBBlaster<UsbBus>> = None;
+static mut USB_BLASTER: Option<
+    Blaster<
+        UsbBus,
+        (),
+        Pa12<Output<PushPull>>,
+        Pa13<Output<PushPull>>,
+        Pa14<Output<PushPull>>,
+        Pa15<Input<Floating>>,
+    >,
+> = None;
 static mut USB_BUS: Option<UsbDevice<UsbBus>> = None;
 static mut LED: Option<hal::gpio::Pb8<hal::gpio::Output<hal::gpio::OpenDrain>>> = None;
 
@@ -25,8 +33,6 @@ static mut LED: Option<hal::gpio::Pb8<hal::gpio::Output<hal::gpio::OpenDrain>>> 
 fn main() -> ! {
     let mut peripherals = Peripherals::take().unwrap();
     let mut core = CorePeripherals::take().unwrap();
-
-    // GCLK0 will be configured with output enable and output_off_value = false
     let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.PM,
@@ -41,7 +47,7 @@ fn main() -> ! {
 
     let main_clk = clocks.gclk0();
     let usb_clock = clocks.usb(&main_clk).unwrap();
-    core.SYST.set_clock_source(SystClkSource::Core);
+
     let allocator = unsafe {
         USB_ALLOCATOR = UsbBusAllocator::new(UsbBus::new(
             &usb_clock,
@@ -58,15 +64,15 @@ fn main() -> ! {
             .led_builtin
             .into_open_drain_output(&mut pins.port)
             .into();
-        USB_BLASTER = blaster::USBBlaster::new(
+        USB_BLASTER = Blaster::new(
             USB_ALLOCATOR.as_ref().unwrap(),
             pins.fpga_tdi.into_push_pull_output(&mut pins.port),
             pins.fpga_tck.into_push_pull_output(&mut pins.port),
             pins.fpga_tms.into_push_pull_output(&mut pins.port),
-            pins.fpga_tdo,
+            pins.fpga_tdo.into_floating_input(&mut pins.port),
         )
         .into();
-        USB_BUS = UsbDeviceBuilder::new(&allocator, blaster::ALTERA_BLASTER_USB_VID_PID)
+        USB_BUS = UsbDeviceBuilder::new(&allocator, ALTERA_BLASTER_USB_VID_PID)
             .manufacturer("Arduino LLC")
             .product("Arduino MKR Vidor 4000")
             .serial_number("12345678")
@@ -87,8 +93,10 @@ fn USB() {
         USB_BUS.as_mut().map(|usb_dev| {
             USB_BLASTER.as_mut().map(|blaster| {
                 usb_dev.poll(&mut [blaster]);
-                blaster.read().ok();
-                blaster.handle();
+                if let Ok(_amount) = blaster.read() {
+                    LED.as_mut().map(|led| led.toggle());
+                }
+                blaster.handle().unwrap();
                 blaster.write(true).ok();
             });
         });

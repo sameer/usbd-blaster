@@ -1,4 +1,4 @@
-use hal::usb::usb_device::{class_prelude::*, control::RequestType, Result, UsbDirection};
+use usb_device::{class_prelude::*, control::RequestType, Result, UsbDirection};
 
 use super::ft245::ROM;
 
@@ -6,30 +6,29 @@ pub struct BlasterClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
     pub read_ep: EndpointOut<'a, B>,
     pub write_ep: EndpointIn<'a, B>,
-    fake_write_ep: EndpointIn<'a, B>,
-    fake_read_ep: EndpointOut<'a, B>,
+    _fake_write_ep: EndpointIn<'a, B>,
+    _fake_read_ep: EndpointOut<'a, B>,
 }
 
-impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, B> {
+impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
     fn get_configuration_descriptors(&self, w: &mut DescriptorWriter) -> Result<()> {
         w.interface(self.iface, 0xFF, 0xFF, 0xFF)?;
-        // w.endpoint(&self.fake_read_ep)?;
         w.endpoint(&self.write_ep)?;
-        w.endpoint(&self.read_ep)?;
-        // w.endpoint(&self.fake_write_ep)?;
-        Ok(())
+        w.endpoint(&self.read_ep)
     }
 
     fn reset(&mut self) {}
 
     fn control_in(&mut self, xfer: ControlIn<B>) {
         let req = xfer.request();
-        if req.recipient == control::Recipient::Device && req.request_type != RequestType::Vendor {
+        if !(req.recipient == control::Recipient::Endpoint && req.index == Self::INTERFACE_A_INDEX)
+        {
             return;
-        } else if req.request_type == RequestType::Vendor {
+        }
+        if req.request_type == RequestType::Vendor {
             match req.request {
                 Self::FTDI_VEN_REQ_RD_EEPROM => {
-                    let addr = (((req.index >> 8) & 0x3f) << 1) as usize;
+                    let addr = (((req.value >> 8) & 0x3f) << 1) as usize;
                     xfer.accept_with(&[ROM[addr], ROM[addr + 1]]).unwrap();
                 }
                 Self::FTDI_VEN_REQ_GET_MODEM_STA => {
@@ -45,7 +44,7 @@ impl<'a, B: hal::usb::usb_device::bus::UsbBus> UsbClass<B> for BlasterClass<'a, 
                 }
             }
         } else {
-            // xfer.reject().ok();
+            xfer.reject().ok();
         }
     }
 }
@@ -72,6 +71,8 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     /// Must be a value between 1 and 255
     const FTDI_LAT_TIMER_DUMMY: [u8; 1] = ['6' as u8];
 
+    pub const INTERFACE_A_INDEX: u16 = 1;
+
     pub fn new(
         alloc: &UsbBusAllocator<B>,
         max_write_packet_size: u16,
@@ -80,11 +81,7 @@ impl<B: UsbBus> BlasterClass<'_, B> {
         BlasterClass {
             iface: alloc.interface(),
             /// See INTERFACE_A: https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L178
-            // fake_read_ep: alloc.bulk(max_read_packet_size),
-            // write_ep: alloc.bulk(max_write_packet_size),
-            // fake_write_ep: alloc.bulk(max_write_packet_size),
-            // read_ep: alloc.bulk(max_read_packet_size),
-                    fake_read_ep: alloc
+            _fake_read_ep: alloc
                 .alloc(
                     Some(EndpointAddress::from_parts(0x01, UsbDirection::Out)),
                     EndpointType::Bulk,
@@ -108,7 +105,7 @@ impl<B: UsbBus> BlasterClass<'_, B> {
                     1,
                 )
                 .expect("alloc_ep failed"),
-            fake_write_ep: alloc
+            _fake_write_ep: alloc
                 .alloc(
                     Some(EndpointAddress::from_parts(0x02, UsbDirection::In)),
                     EndpointType::Bulk,

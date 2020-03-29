@@ -12,7 +12,8 @@ dependencies = [
 [[package]]
 name = "arduino_mkrvidor4000"
 version = "0.1.0"
-source = "git+https://github.com/sameer/atsamd.git#7742311cbc3bcf75bd756ad0c9e722ed2d877b43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d22d79251f54a8b8e90f816592609c1db2e3108c5cc0fb34a4d3f42da2fa0533"
 dependencies = [
  "atsamd-hal",
  "cortex-m",
@@ -36,7 +37,8 @@ dependencies = [
 [[package]]
 name = "atsamd-hal"
 version = "0.8.2"
-source = "git+https://github.com/sameer/atsamd.git#7742311cbc3bcf75bd756ad0c9e722ed2d877b43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db54e444b4585e7844c4d8459b4af5ef093c42a05ba40eb1cee57c4b5e7bebe8"
 dependencies = [
  "atsamd21g18a",
  "bitfield",
@@ -53,7 +55,8 @@ dependencies = [
 [[package]]
 name = "atsamd21g18a"
 version = "0.6.0"
-source = "git+https://github.com/sameer/atsamd.git#7742311cbc3bcf75bd756ad0c9e722ed2d877b43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5486b991ab0012b18f749e0b4bd71d882b4d6134dd58a1c16b571cf2e3d40eb"
 dependencies = [
  "bare-metal",
  "cortex-m",
@@ -266,12 +269,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e5e2b9ba23f0d9ef7a34e498b6581c9d67944a1916542bfc7238bf1dc0d6acd"
 
 [[package]]
-name = "usbblaster-rs"
+name = "usbd-blaster"
 version = "0.1.0"
 dependencies = [
  "arduino_mkrvidor4000",
- "cortex-m",
  "cortex-m-rt",
+ "embedded-hal",
+ "usb-device",
 ]
 
 [[package]]

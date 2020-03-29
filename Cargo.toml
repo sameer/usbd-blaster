@@ -1,20 +1,28 @@
 [package]
-name = "usbblaster-rs"
+name = "usbd-blaster"
 version = "0.1.0"
 authors = ["Sameer Puri <sameer@users.noreply.github.com>"]
 edition = "2018"
+keywords = ["no-std", "usb-device", "blaster", "jtag", "ftdi"]
+categories = ["embedded", "no-std"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sameer/usbd-blaster"
+documentation = "https://docs.rs/usbd-blaster"
+description = "USB Blaster for Embedded Devices"
+readme = "README.md"
 
-[profile.release]
-# opt-level = 'z'
-lto = true
-codegen-units = 1
+[badges]
+is-it-maintained-issue-resolution = { repository = "sameer/usbd-blaster" }
+is-it-maintained-open-issues = { repository = "sameer/usbd-blaster" }
+maintenance = { status = "passively-maintained" }
 
 [dependencies]
-cortex-m = "*"
-cortex-m-rt = "*"
+usb-device = "~0.2"
+embedded-hal = "~0.2"
 
+[dev-dependencies]
+cortex-m-rt = "0.6"
 
-[dependencies.arduino_mkrvidor4000]
+[dev-dependencies.arduino_mkrvidor4000]
 version = "~0.1"
-git = "https://github.com/sameer/atsamd.git"
-features = ["default", "usb", "unproven", "enable_fpga_clock"]
+features = ["default", "usb", "unproven"]

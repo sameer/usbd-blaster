@@ -1,21 +1,26 @@
-# USB Blaster for Arduino MKR Vidor 4000
+# USB Blaster for Embedded Devices
 
 ## What is this?
 
-A project for the [Arduino MKR Vidor 4000](https://www.arduino.cc/en/Guide/MKRVidor4000) written in [Rust](https://www.rust-lang.org/) that lets you program the onboard [FPGA](https://en.wikipedia.org/wiki/Field-programmable_gate_array) with [Quartus](https://en.wikipedia.org/wiki/Intel_Quartus_Prime).
+A crate for emulating a USB Blaster device, written in [Rust](https://www.rust-lang.org/).
+
+For the [Arduino MKR Vidor 4000](https://www.arduino.cc/en/Guide/MKRVidor4000), you can use this to program the onboard [FPGA](https://en.wikipedia.org/wiki/Field-programmable_gate_array) with [Quartus](https://en.wikipedia.org/wiki/Intel_Quartus_Prime).
 
 ## Usage
 
 ### Requirements
 
-* Rust language
-* arm-none-eabi-gcc (ArchLinux users, get gcc-arm-none-eabi-bin)
-* [Atmel SAM flashing tool](https://github.com/shumatech/BOSSA) (aka bossac, comes in Arduino tools)
+* Rust language (rustup, cargo)
+* Embedded compiler toolchain
+    * for ARM: arm-none-eabi-gcc (ArchLinux users, get gcc-arm-none-eabi-bin) and rustup target add thumbv6m-none-eabi
+* Board flashing tool
+    * for Atmel SAM: [Atmel SAM flashing tool](https://github.com/shumatech/BOSSA) (aka bossac, comes in Arduino tools)
 
 ### Flashing the USB Blaster
 
+#### Arduino MKR Vidor 4000
 ```bash
-cargo build --release
+cargo build --release --target thumbv6m-none-eabi --example arduino_mkrvidor4000
 arm-none-eabi-objcopy -O binary target/thumbv6m-none-eabi/release/usbblaster-rs target/usbblaster-rs.bin
 # Manual step: push reset button twice in quick succession to enter flash mode
 bossac -i -d -U true -i -e -w -v target/usbblaster-rs.bin -R
@@ -42,6 +47,7 @@ You can safely ignore the following error:
 
 `Error: IR capture error at bit 2, saw 0x3FFFFFFFFFFFFD55 not 0x...3`
 
+This seems to happen on other USB blasters too. If you know why this is and can fix it, feel free to open a PR.
 
 ## How it works
 
@@ -61,56 +67,16 @@ Bit-bang mode is useful for JTAG control, shift mode is useful for a bulk transf
 
 ## To-Do
 
+- [ ] Support optional TRST JTAG pin
+    - This is nontrivial, because you need to duplicate a lot of code to add in an extra field with a different trait
 - [ ] Make pull requests for changes made
     - [x] LCK_C & LCK_F
-    - [ ] SRAM QoS for Arduino USB
-    - [ ] Enable FPGA Clock equivalent
-- [ ] Document everything in this repo
+    - [ ] SRAM QoS for Arduino USB in ArduinoCore-SAMD
+    - [ ] MKR Vidor 4000 support in atsamd-hal
+    - [x] Enable FPGA Clock equivalent
+- [x] Document everything in this repo
+- [x] Additional comments
 
 ## Special Thanks
 
 * [Martino Facchin](https://github.com/facchinm)
-
-## Reference Documents
-
-* [SAMD21 Family Data Sheet](http://ww1.microchip.com/downloads/en/DeviceDoc/SAM_D21_DA1_Family_DataSheet_DS40001882F.pdf)
-
-
-## Rust atsamd21g18a hal comparison with Arduino SAMD core investigation
-
-- Confirm entire USB implementation matches Arduino SAMD Core
-    - [x] UsbBus::new matches UsbDeviceClas::init
-        - Dp/Dm pin setup correct
-    - [x] Clock enable correct
-        - GCLK 0 set as source for GCLK6 with just clock enable, not clock generate
-        - waits for sync
-    - [x] Clock generation correct
-        - Sets half enable for NVM
-        - Sets apba mask
-        - Use external oscillator (!! switched to this)
-        - Correctly writes genclk 1 configuration (no idc)
-        - Feeds 32k to DFLL48
-        - Everything else looked correct: just there was a missing sync or two & there was no wait for LCK_C, LCK_F
-    - [ ] USB Init
-        - Correct multiplexer (6)
-        - Correct reset: swrst on ctrla
-        - Calibration
-            - Correct NVM calibration data & addresses on UsbBus::enable
-        - Run in standby
-        - Device mode
-        - Full speed
-        - NVIC interrupt with priority 0
-        - [ ] there are some extra steps I noticed in UsbBus::enable
-            - SRAM QoS (memory priority access) set to critical for data and configuration
-            - clear pending on intflag (?)
-            - flush endpoints (host behavior compensation)
-    - [x] Attach/enable
-        - [x] UsbBus::enable does not enable start of frame interrupt
-            - Arduino uses SoF interrupt to flash LEDs on boards with TX/RX LEDs
-        - Detach clear_bit correct
-    - [ ] Polling
-        - idek
-    - [ ] PluggableUSB vs usb-device: blaster implementation
-        - no handleEndpoint -- just does everything in the main program loop it seems, without interrupts
-    - [ ] Implementation specific values
-        - Arduino has pack messages to aggregate sending (unused by blaster I guess)
