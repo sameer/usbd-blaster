@@ -270,7 +270,7 @@ checksum = "0e5e2b9ba23f0d9ef7a34e498b6581c9d67944a1916542bfc7238bf1dc0d6acd"
 
 [[package]]
 name = "usbd-blaster"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arduino_mkrvidor4000",
  "cortex-m-rt",
