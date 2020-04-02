@@ -2,6 +2,15 @@ use usb_device::{class_prelude::*, control::RequestType, Result, UsbDirection};
 
 use super::ft245::ROM;
 
+/// See [ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L2049)
+const DATA_READY: u8 = 0b0000_0001;
+const RECEIVE_LINE_SIGNAL_DETECT_ACTIVE: u8 = 0b1000_0000;
+const RING_INDICATOR_ACTIVE: u8 = 0b0100_0000;
+pub const FTDI_MODEM_STA_DUMMY: [u8; 2] = [DATA_READY, RECEIVE_LINE_SIGNAL_DETECT_ACTIVE | RING_INDICATOR_ACTIVE];
+
+/// See [ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.h#L75)
+pub const INTERFACE_A_INDEX: u16 = 1;
+
 pub struct BlasterClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
     pub read_ep: EndpointOut<'a, B>,
@@ -18,23 +27,52 @@ impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
     fn reset(&mut self) {}
 
     fn control_in(&mut self, xfer: ControlIn<B>) {
+        /// [Set chip baud rate](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L104)
+        const _FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
+        /// [Set RS232 line characteristics](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L198)
+        const _FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
+        /// [Set chip flow control](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L277)
+        const _FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
+        /// [Set modem ctrl](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L232)
+        const _FTDI_VEN_REQ_SET_MODEM_CTRL: u8 = 0x04;
+        /// [Get modem status](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L2049)
+        const FTDI_VEN_REQ_GET_MODEM_STA: u8 = 0x05;
+        /// [Set special event character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L365)
+        const _FTDI_VEN_REQ_SET_EVENT_CHAR: u8 = 0x06;
+        /// [Set parity error replacement character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L382)
+        const _FTDI_VEN_REQ_SET_ERR_CHAR: u8 = 0x07;
+        /// [Set latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L324)
+        const _FTDI_VEN_REQ_SET_LAT_TIMER: u8 = 0x09;
+        /// [Get latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L302)
+        const FTDI_VEN_REQ_GET_LAT_TIMER: u8 = 0x0A;
+        /// [Set bitmode](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1921)
+        const _FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
+        /// [Read pins](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1972)
+        const _FTDI_VEN_REQ_RD_PINS: u8 = 0x0C;
+        //// [Read EEPROM location](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L4025)
+        const FTDI_VEN_REQ_RD_EEPROM: u8 = 0x90;
+
+        /// Must be a value between 1 and 255
+        /// [16 is the default](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L310)
+        const FTDI_LAT_TIMER_DUMMY: [u8; 1] = ['6' as u8];
+
         let req = xfer.request();
-        if !(req.recipient == control::Recipient::Endpoint && req.index == Self::INTERFACE_A_INDEX)
+        if !(req.recipient == control::Recipient::Endpoint && req.index == INTERFACE_A_INDEX)
         {
             return;
         }
         if req.request_type == RequestType::Vendor {
             match req.request {
-                Self::FTDI_VEN_REQ_RD_EEPROM => {
+                FTDI_VEN_REQ_RD_EEPROM => {
                     let addr = (((req.value >> 8) & 0x3f) << 1) as usize;
-                    xfer.accept_with(&[ROM[addr], ROM[addr + 1]]).unwrap();
+                    xfer.accept_with(&ROM[addr..=addr + 1]).unwrap();
                 }
-                Self::FTDI_VEN_REQ_GET_MODEM_STA => {
-                    xfer.accept_with_static(&Self::FTDI_MODEM_STA_DUMMY)
+                FTDI_VEN_REQ_GET_MODEM_STA => {
+                    xfer.accept_with_static(&FTDI_MODEM_STA_DUMMY)
                         .unwrap();
                 }
-                Self::FTDI_VEN_REQ_GET_LAT_TIMER => {
-                    xfer.accept_with_static(&Self::FTDI_LAT_TIMER_DUMMY)
+                FTDI_VEN_REQ_GET_LAT_TIMER => {
+                    xfer.accept_with_static(&FTDI_LAT_TIMER_DUMMY)
                         .unwrap();
                 }
                 _ => {
@@ -48,29 +86,6 @@ impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
 }
 
 impl<B: UsbBus> BlasterClass<'_, B> {
-    pub const FTDI_VEN_REQ_RESET: u8 = 0x00;
-    const FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
-    const FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
-    const FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
-    const FTDI_VEN_REQ_SET_MODEM_CTRL: u8 = 0x04;
-    const FTDI_VEN_REQ_GET_MODEM_STA: u8 = 0x05;
-    const FTDI_VEN_REQ_SET_EVENT_CHAR: u8 = 0x06;
-    const FTDI_VEN_REQ_SET_ERR_CHAR: u8 = 0x07;
-    const FTDI_VEN_REQ_SET_LAT_TIMER: u8 = 0x09;
-    const FTDI_VEN_REQ_GET_LAT_TIMER: u8 = 0x0A;
-    const FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
-    const FTDI_VEN_REQ_RD_PINS: u8 = 0x0C;
-    const FTDI_VEN_REQ_RD_EEPROM: u8 = 0x90;
-    pub const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
-    pub const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
-
-    pub const FTDI_MODEM_STA_DUMMY: [u8; 2] = [0x01, 0x60];
-
-    /// Must be a value between 1 and 255
-    const FTDI_LAT_TIMER_DUMMY: [u8; 1] = ['6' as u8];
-
-    pub const INTERFACE_A_INDEX: u16 = 1;
-
     pub fn new(
         alloc: &UsbBusAllocator<B>,
         max_write_packet_size: u16,

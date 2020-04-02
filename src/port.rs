@@ -180,10 +180,7 @@ where
             i += 1;
         }
         if i != 0 {
-            for j in 0..(*recv_len - i) {
-                recv_buf[j] = recv_buf[j + i];
-            }
-            *recv_len -= i;
+            recv_buf.copy_within(i..*recv_len, 0);
         }
         Ok(())
     }

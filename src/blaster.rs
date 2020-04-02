@@ -1,7 +1,7 @@
 use hal::digital::v2::{InputPin, OutputPin};
 use usb_device::{class_prelude::*, control::RequestType};
 
-use crate::class::BlasterClass;
+use crate::class::{BlasterClass, FTDI_MODEM_STA_DUMMY, INTERFACE_A_INDEX};
 use crate::port::Port;
 
 /// Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
@@ -25,7 +25,6 @@ pub struct Blaster<
     send_len: usize,
     recv_buffer: [u8; BLASTER_READ_SIZE],
     recv_len: usize,
-    first_send: bool,
 }
 
 impl<
@@ -54,7 +53,6 @@ impl<
             send_len: 0,
             recv_buffer: [0u8; BLASTER_READ_SIZE],
             recv_len: 0,
-            first_send: true,
         }
     }
 
@@ -69,15 +67,13 @@ impl<
     }
 
     /// Write data to the host input endpoint from the Blaster's internal write buffer.
-    /// The heartbeat parameter must be true at least once every 10 milliseconds, so that the blaster can output the modem status.
+    /// The heartbeat parameter must be true at least once every 40 milliseconds, so that the blaster can output the modem status. See [libftdi ftdi.c](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L2053) for more on this.
     /// A safe default for the heartbeat seems to be true all the time. This will output the modem status whenever the host reads the device.
     pub fn write(&mut self, heartbeat: bool) -> usb_device::Result<usize> {
-        if !(self.send_len != 0 || self.first_send || heartbeat) {
+        if self.send_len != 0 && !heartbeat {
             return Err(UsbError::WouldBlock);
         }
-        self.send_buffer[0] = BlasterClass::<'_, B>::FTDI_MODEM_STA_DUMMY[0];
-        self.send_buffer[1] = BlasterClass::<'_, B>::FTDI_MODEM_STA_DUMMY[1];
-        self.first_send = false;
+        self.send_buffer[0..2].copy_from_slice(&FTDI_MODEM_STA_DUMMY);
         let res = self.class.write(&self.send_buffer[..self.send_len + 2]);
         if res.is_ok() {
             let amount = *res.as_ref().unwrap();
@@ -87,10 +83,8 @@ impl<
                     panic!("Cannot recover from half-sent status");
                 }
             } else {
+                self.send_buffer.copy_within((amount)..(self.send_len + 2), 2);
                 let actual_amount = amount - 2;
-                for i in 0..(self.send_len - actual_amount) {
-                    self.send_buffer[i + 2] = self.send_buffer[i + 2 + actual_amount];
-                }
                 self.send_len -= actual_amount;
             }
         }
@@ -118,7 +112,8 @@ impl<
         TDO: InputPin<Error = E>,
     > UsbClass<B> for Blaster<'_, B, E, TDI, TCK, TMS, TDO>
 where
-    B: UsbBus, E: core::fmt::Debug
+    B: UsbBus,
+    E: core::fmt::Debug,
 {
     fn get_configuration_descriptors(
         &self,
@@ -131,7 +126,6 @@ where
         self.class.reset();
         // TODO: if this fails, there are bigger, device-level problems.
         self.port.reset().expect("unable to reset port");
-        self.first_send = true;
         self.send_len = 0;
         self.recv_len = 0;
     }
@@ -143,32 +137,46 @@ where
     fn control_out(&mut self, xfer: ControlOut<B>) {
         let req = xfer.request();
         if !(req.recipient == control::Recipient::Endpoint
-            && req.index == BlasterClass::<'_, B>::INTERFACE_A_INDEX)
+            && req.index == INTERFACE_A_INDEX)
         {
             return;
         }
 
         if req.request_type == RequestType::Vendor {
+            /// See [Linux kernel ftdi_sio.h](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L74)
+            const FTDI_VEN_REQ_RESET: u8 = 0x00;
+            /// See [libftdi ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.h#L169)
+            /// This request is rejected -- EEPROM is read-only.
+            const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
+            /// This request is rejected -- EEPROM is read-only.
+            const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
             match req.request {
-                BlasterClass::<'_, B>::FTDI_VEN_REQ_RESET => {
+                FTDI_VEN_REQ_RESET => {
+                    const RESET_SIO: u16 = 0x0000;
+                    const RESET_PURGE_RX: u16 = 0x0001;
+                    const RESET_PURGE_TX: u16 = 0x0002;
                     match req.value {
-                        0 => self.reset(),
-                        1 => {
-                            // TODO: self.read_ep.clear()
+                        RESET_SIO => {
                             self.reset();
+                            xfer.accept().unwrap();
                         }
-                        2 => {
-                            // TODO: self.write_ep.clear()
-                            self.reset();
+                        RESET_PURGE_RX => {
+                            self.recv_len = 0;
+                            xfer.accept().unwrap();
                         }
-                        _ => {}
+                        RESET_PURGE_TX => {
+                            self.send_len = 0;
+                            xfer.accept().unwrap();
+                        }
+                        _ => {
+                            xfer.reject().unwrap();
+                        }
                     }
-                    xfer.accept().unwrap();
                 }
-                BlasterClass::<'_, B>::FTDI_VEN_REQ_WR_EEPROM => {
+                FTDI_VEN_REQ_WR_EEPROM => {
                     xfer.reject().unwrap();
                 }
-                BlasterClass::<'_, B>::FTDI_VEN_REQ_ES_EEPROM => {
+                FTDI_VEN_REQ_ES_EEPROM => {
                     xfer.reject().unwrap();
                 }
                 _ => {
