@@ -1,7 +1,7 @@
 [package]
 name = "usbd-blaster"
 version = "0.1.1"
-authors = ["Sameer Puri <sameer@users.noreply.github.com>"]
+authors = ["Sameer Puri <purisame@spuri.io>"]
 edition = "2018"
 keywords = ["no-std", "usb-device", "blaster", "jtag", "ftdi"]
 categories = ["embedded", "no-std"]
