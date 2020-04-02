@@ -83,7 +83,8 @@ impl<
                     panic!("Cannot recover from half-sent status");
                 }
             } else {
-                self.send_buffer.copy_within((amount)..(self.send_len + 2), 2);
+                self.send_buffer
+                    .copy_within((amount)..(self.send_len + 2), 2);
                 let actual_amount = amount - 2;
                 self.send_len -= actual_amount;
             }
@@ -136,15 +137,29 @@ where
 
     fn control_out(&mut self, xfer: ControlOut<B>) {
         let req = xfer.request();
-        if !(req.recipient == control::Recipient::Endpoint
-            && req.index == INTERFACE_A_INDEX)
-        {
+        if !(req.recipient == control::Recipient::Endpoint && req.index == INTERFACE_A_INDEX) {
             return;
         }
 
         if req.request_type == RequestType::Vendor {
             /// See [Linux kernel ftdi_sio.h](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L74)
             const FTDI_VEN_REQ_RESET: u8 = 0x00;
+            /// [Set chip baud rate](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L104)
+            const _FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
+            /// [Set RS232 line characteristics](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L198)
+            const _FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
+            /// [Set chip flow control](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L277)
+            const _FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
+            /// [Set modem ctrl](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L232)
+            const _FTDI_VEN_REQ_SET_MODEM_CTRL: u8 = 0x04;
+            /// [Set special event character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L365)
+            const _FTDI_VEN_REQ_SET_EVENT_CHAR: u8 = 0x06;
+            /// [Set parity error replacement character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L382)
+            const _FTDI_VEN_REQ_SET_ERR_CHAR: u8 = 0x07;
+            /// [Set latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L324)
+            const _FTDI_VEN_REQ_SET_LAT_TIMER: u8 = 0x09;
+            /// [Set bitmode](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1921)
+            const _FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
             /// See [libftdi ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.h#L169)
             /// This request is rejected -- EEPROM is read-only.
             const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;

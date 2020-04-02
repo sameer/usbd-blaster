@@ -27,26 +27,10 @@ impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
     fn reset(&mut self) {}
 
     fn control_in(&mut self, xfer: ControlIn<B>) {
-        /// [Set chip baud rate](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L104)
-        const _FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
-        /// [Set RS232 line characteristics](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L198)
-        const _FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
-        /// [Set chip flow control](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L277)
-        const _FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
-        /// [Set modem ctrl](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L232)
-        const _FTDI_VEN_REQ_SET_MODEM_CTRL: u8 = 0x04;
         /// [Get modem status](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L2049)
         const FTDI_VEN_REQ_GET_MODEM_STA: u8 = 0x05;
-        /// [Set special event character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L365)
-        const _FTDI_VEN_REQ_SET_EVENT_CHAR: u8 = 0x06;
-        /// [Set parity error replacement character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L382)
-        const _FTDI_VEN_REQ_SET_ERR_CHAR: u8 = 0x07;
-        /// [Set latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L324)
-        const _FTDI_VEN_REQ_SET_LAT_TIMER: u8 = 0x09;
         /// [Get latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L302)
         const FTDI_VEN_REQ_GET_LAT_TIMER: u8 = 0x0A;
-        /// [Set bitmode](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1921)
-        const _FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
         /// [Read pins](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1972)
         const _FTDI_VEN_REQ_RD_PINS: u8 = 0x0C;
         //// [Read EEPROM location](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L4025)
