@@ -13,6 +13,7 @@ pub struct Port<
     tdo: TDO,
     jtag_state: JTAGState,
     shift_count: u8,
+    shift_data: u8,
     read_en: bool,
     got_clock: bool,
 }
@@ -110,25 +111,32 @@ where
     TMS: OutputPin,
     TDO: InputPin,
 {
-    // mode set
+    /// [Shift bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L173)
     const BLASTER_STA_SHIFT: u8 = 0x80;
+    /// [Read bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L171)
     const BLASTER_STA_READ: u8 = 0x40;
+    /// [Byte shift count mask](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L174)
     const BLASTER_STA_CNT_MASK: u8 = 0x3f;
 
-    // bit-bang out
-    const BLASTER_STA_OUT_OE: u8 = 0x20;
+    /// [Output enable](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L182)
+    const _BLASTER_STA_OUT_OE: u8 = 0x20;
+    /// [TDI high bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L181)
     const BLASTER_STA_OUT_TDI: u8 = 0x10;
-    const BLASTER_STA_OUT_NCS: u8 = 0x08;
-    const BLASTER_STA_OUT_NCE: u8 = 0x04;
+    /// [nCS high bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L180)
+    /// Always 0, which means chip is selected
+    const _BLASTER_STA_OUT_NCS: u8 = 0x08;
+    /// [nCE high bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L179)
+    /// Always 0, which means chip is enabled
+    const _BLASTER_STA_OUT_NCE: u8 = 0x04;
+    /// [TMS high bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L178)
     const BLASTER_STA_OUT_TMS: u8 = 0x02;
+    /// [TCK high bit](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L177)
     const BLASTER_STA_OUT_TCK: u8 = 0x01;
 
-    // bit-bang in
+    // Data from device
     const BLASTER_STA_IN_TDO: u8 = 0x01;
-    const BLASTER_STA_IN_DATAOUT: u8 = 0x02;
-
-    const BLASTER_STA_IN_TDO_BIT: u8 = 0;
-    const BLASTER_STA_IN_DATAOUT_BIT: u8 = 1;
+    /// Active serial data out (not used for JTAG)
+    const _BLASTER_STA_IN_DATAOUT: u8 = 0x02;
 
     pub fn new(tdi: TDI, tck: TCK, tms: TMS, tdo: TDO) -> Port<E, TDI, TCK, TMS, TDO> {
         Port {
@@ -138,6 +146,7 @@ where
             tdo,
             jtag_state: JTAGState::Reset,
             shift_count: 0,
+            shift_data: 0,
             read_en: false,
             got_clock: false,
         }
@@ -160,6 +169,11 @@ where
                 if d & Self::BLASTER_STA_SHIFT != 0 {
                     // Swap to shift mode for 0 to 63 shifts
                     self.shift_count = d & Self::BLASTER_STA_CNT_MASK;
+                    // [Record shift register content and send it to the host](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L199)
+                    if self.read_en {
+                        send_buf[*send_len] = self.shift_data;
+                        *send_len += 1;
+                    }
                 } else {
                     self.set_state(d)?;
                     if self.read_en {
@@ -170,10 +184,13 @@ where
             } else {
                 // shift-mode
                 if self.read_en {
-                    send_buf[*send_len] = self.shift_io(d)?;
+                    self.shift_data = d;
+                    self.shift_io()?;
+                    send_buf[*send_len] = self.shift_data;
                     *send_len += 1;
                 } else {
-                    self.shift_out(d)?;
+                    self.shift_data = d;
+                    self.shift_out()?;
                 }
                 self.shift_count -= 1;
             }
@@ -214,10 +231,11 @@ where
         }
     }
 
+    /// [Record the state of TDO and nSTATUS](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L184)
     pub fn get_state(&mut self) -> Result<u8, E> {
         let mut d = 0u8;
         if self.tdo.is_high()? {
-            d |= 1 << Self::BLASTER_STA_IN_TDO_BIT;
+            d |= Self::BLASTER_STA_IN_TDO;
         }
         Ok(d)
     }
@@ -245,37 +263,35 @@ where
         Ok(())
     }
 
-    fn shift_out(&mut self, data: u8) -> Result<(), E> {
-        let mut shift_data = data;
+    fn shift_out(&mut self) -> Result<(), E> {
         for _i in 0..8 {
-            if shift_data & 1 != 0 {
+            if self.shift_data & 1 != 0 {
                 self.tdi.set_high()?;
             } else {
                 self.tdi.set_low()?;
             }
             self.tck.set_high()?;
-            shift_data >>= 1;
+            self.shift_data = self.shift_data.rotate_right(1);
             self.tck.set_low()?;
         }
         Ok(())
     }
 
-    fn shift_io(&mut self, data: u8) -> Result<u8, E> {
-        let mut shift_data = data;
+    fn shift_io(&mut self) -> Result<(), E> {
         for _i in 0..8 {
-            if shift_data & 1 != 0 {
+            if self.shift_data & 1 != 0 {
                 self.tdi.set_high()?;
             } else {
                 self.tdi.set_low()?;
             }
             let din = self.tdo.is_high()?;
             self.tck.set_high()?;
-            shift_data >>= 1;
+            self.shift_data = self.shift_data.rotate_right(1);
             if din {
-                shift_data |= 0b1000_0000u8;
+                self.shift_data |= 0b1000_0000u8;
             }
             self.tck.set_low()?;
         }
-        Ok(shift_data)
+        Ok(())
     }
 }

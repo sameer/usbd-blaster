@@ -65,17 +65,16 @@ The blaster has two operating modes: bit-bang (default) or shift. In bit-bang, t
 
 Bit-bang mode is useful for JTAG control, shift mode is useful for a bulk transfer like writing an FPGA bitstream.
 
-## To-Do
+## Quirks/ Things to be aware of
 
-- [ ] Support optional TRST JTAG pin
-    - This is nontrivial, because you need to duplicate a lot of code to add in an extra field with a different trait
-- [ ] Make pull requests for changes made
-    - [x] LCK_C & LCK_F
-    - [ ] SRAM QoS for Arduino USB in ArduinoCore-SAMD
-    - [ ] MKR Vidor 4000 support in atsamd-hal
-    - [x] Enable FPGA Clock equivalent
-- [x] Document everything in this repo
-- [x] Additional comments
+This crate does JTAG only. These other pins are ignored, because [they are not part of JTAG](https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/ug/ug_usb_blstr.pdf#_OPENTOPIC_TOC_PROCESSING_d116e1073)
+
+- Active Serial (AS) mode
+    - active-low chip enable (nCE)
+    - active-low chip select (nCS)
+    - active serial data out (DATAOUT)
+- Passive Serial (PS) mode
+    - active-low configuration status (nSTATUS)
 
 ## Special Thanks
 

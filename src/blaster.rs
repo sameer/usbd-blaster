@@ -67,7 +67,8 @@ impl<
     }
 
     /// Write data to the host input endpoint from the Blaster's internal write buffer.
-    /// The heartbeat parameter must be true at least once every 40 milliseconds, so that the blaster can output the modem status. See [libftdi ftdi.c](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L2053) for more on this.
+    /// The heartbeat parameter must be true at least once every 10 milliseconds, so that the blaster can output the modem status. See [libftdi ftdi.c](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L2053) for more on this.
+    /// Otherwise, [a BSOD could occur on Windows](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L212)
     /// A safe default for the heartbeat seems to be true all the time. This will output the modem status whenever the host reads the device.
     pub fn write(&mut self, heartbeat: bool) -> usb_device::Result<usize> {
         if self.send_len != 0 && !heartbeat {
