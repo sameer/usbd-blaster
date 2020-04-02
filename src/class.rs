@@ -6,8 +6,6 @@ pub struct BlasterClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
     pub read_ep: EndpointOut<'a, B>,
     pub write_ep: EndpointIn<'a, B>,
-    _fake_write_ep: EndpointIn<'a, B>,
-    _fake_read_ep: EndpointOut<'a, B>,
 }
 
 impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
@@ -80,15 +78,6 @@ impl<B: UsbBus> BlasterClass<'_, B> {
     ) -> BlasterClass<'_, B> {
         BlasterClass {
             iface: alloc.interface(),
-            /// See INTERFACE_A: https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L178
-            _fake_read_ep: alloc
-                .alloc(
-                    Some(EndpointAddress::from_parts(0x01, UsbDirection::Out)),
-                    EndpointType::Bulk,
-                    max_write_packet_size,
-                    1,
-                )
-                .expect("alloc_ep failed"),
             write_ep: alloc
                 .alloc(
                     Some(EndpointAddress::from_parts(0x01, UsbDirection::In)),
@@ -100,14 +89,6 @@ impl<B: UsbBus> BlasterClass<'_, B> {
             read_ep: alloc
                 .alloc(
                     Some(EndpointAddress::from_parts(0x02, UsbDirection::Out)),
-                    EndpointType::Bulk,
-                    max_read_packet_size,
-                    1,
-                )
-                .expect("alloc_ep failed"),
-            _fake_write_ep: alloc
-                .alloc(
-                    Some(EndpointAddress::from_parts(0x02, UsbDirection::In)),
                     EndpointType::Bulk,
                     max_read_packet_size,
                     1,
