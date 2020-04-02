@@ -9,6 +9,7 @@ use crate::port::Port;
 const BLASTER_WRITE_SIZE: usize = 64;
 const BLASTER_READ_SIZE: usize = 64;
 
+/// Blaster device class
 pub struct Blaster<
     'a,
     B: UsbBus,
@@ -37,7 +38,7 @@ impl<
         TDO: InputPin<Error = E>,
     > Blaster<'a, B, E, TDI, TCK, TMS, TDO>
 {
-    /// Allocate a Blaster on the USB bus. Gives control of the four JTAG pins.
+    /// Allocate a Blaster on the USB bus. Takes control of the four JTAG pins.
     /// The JTAG pins can be any pins you want, just make sure you assign them correctly.
     pub fn new(
         alloc: &'a UsbBusAllocator<B>,
