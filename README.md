@@ -40,8 +40,19 @@ quartus_pgm -m jtag -o 'p;project-name.sof'
 #### OpenOCD
 
 ```bash
-openocd -f /usr/share/openocd/scripts/interface/altera-usb-blaster.cfg
+openocd -f altera-usb-blaster.cfg
 ```
+
+Example configuration:
+
+```
+interface usb_blaster
+init
+scan_chain
+svf project.svf
+```
+
+Make sure you've enabled SVF file generation, and change project.svf to the name of your project.
 
 You can safely ignore the following error:
 
