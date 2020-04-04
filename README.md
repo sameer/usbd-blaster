@@ -50,6 +50,7 @@ interface usb_blaster
 init
 scan_chain
 svf project.svf
+exit
 ```
 
 Make sure you've enabled SVF file generation, and change project.svf to the name of your project.

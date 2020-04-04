@@ -1,13 +1,13 @@
 use hal::digital::v2::{InputPin, OutputPin};
 use usb_device::{class_prelude::*, control::RequestType};
 
-use crate::class::{BlasterClass, FTDI_MODEM_STA_DUMMY, INTERFACE_A_INDEX};
+use crate::class::{BlasterClass, FTDI_MODEM_STA_DUMMY};
 use crate::port::Port;
 
 /// Depending on the underlying USB library (libusb or similar) the OS may send/receive more bytes than declared in the USB endpoint
 /// If this happens to you, please open an issue for this crate on GitHub.
 const BLASTER_WRITE_SIZE: usize = 64;
-const BLASTER_READ_SIZE: usize = 64;
+const BLASTER_READ_SIZE: usize = 32;
 
 /// Blaster device class
 pub struct Blaster<
@@ -46,14 +46,17 @@ impl<
         tms: TMS,
         tdo: TDO,
     ) -> Blaster<'a, B, E, TDI, TCK, TMS, TDO> {
-        Blaster {
+        let mut blaster = Blaster {
             class: BlasterClass::new(alloc, BLASTER_WRITE_SIZE as u16, BLASTER_READ_SIZE as u16),
             port: Port::new(tdi, tck, tms, tdo),
             send_buffer: [0u8; BLASTER_WRITE_SIZE],
             send_len: 0,
             recv_buffer: [0u8; BLASTER_READ_SIZE],
             recv_len: 0,
-        }
+        };
+        blaster.send_buffer[0] = FTDI_MODEM_STA_DUMMY[0];
+        blaster.send_buffer[1] = FTDI_MODEM_STA_DUMMY[1];
+        blaster
     }
 
     /// Read data from the host output endpoint into the Blaster's internal read buffer.
@@ -74,8 +77,6 @@ impl<
         if self.send_len == 0 && !heartbeat {
             return Err(UsbError::WouldBlock);
         }
-        self.send_buffer[0] = FTDI_MODEM_STA_DUMMY[0];
-        self.send_buffer[1] = FTDI_MODEM_STA_DUMMY[1];
         let res = self.class.write(&self.send_buffer[..self.send_len + 2]);
         if res.is_ok() {
             let amount = *res.as_ref().unwrap();
@@ -85,10 +86,9 @@ impl<
                     panic!("Cannot recover from half-sent status");
                 }
             } else {
+                self.send_buffer
+                    .copy_within((amount)..(self.send_len + 2), 2);
                 let actual_amount = amount - 2;
-                for i in 0..(self.send_len - actual_amount) {
-                    self.send_buffer[i + 2] = self.send_buffer[i + 2 + actual_amount];
-                }
                 self.send_len -= actual_amount;
             }
         }
@@ -139,32 +139,32 @@ where
     }
 
     fn control_out(&mut self, xfer: ControlOut<B>) {
-        let req = xfer.request();
+        /// See [Linux kernel ftdi_sio.h](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L74)
+        const FTDI_VEN_REQ_RESET: u8 = 0x00;
+        /// [Set chip baud rate](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L104)
+        const _FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
+        /// [Set RS232 line characteristics](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L198)
+        const _FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
+        /// [Set chip flow control](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L277)
+        const _FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
+        /// [Set modem ctrl](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L232)
+        const _FTDI_VEN_REQ_SET_MODEM_CTRL: u8 = 0x04;
+        /// [Set special event character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L365)
+        const _FTDI_VEN_REQ_SET_EVENT_CHAR: u8 = 0x06;
+        /// [Set parity error replacement character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L382)
+        const _FTDI_VEN_REQ_SET_ERR_CHAR: u8 = 0x07;
+        /// [Set latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L324)
+        const _FTDI_VEN_REQ_SET_LAT_TIMER: u8 = 0x09;
+        /// [Set bitmode](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1921)
+        const _FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
+        /// See [libftdi ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.h#L169)
+        /// This request is rejected -- EEPROM is read-only.
+        const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
+        /// This request is rejected -- EEPROM is read-only.
+        const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
 
+        let req = xfer.request();
         if req.request_type == RequestType::Vendor {
-            /// See [Linux kernel ftdi_sio.h](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L74)
-            const FTDI_VEN_REQ_RESET: u8 = 0x00;
-            /// [Set chip baud rate](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L104)
-            const _FTDI_VEN_REQ_SET_BAUDRATE: u8 = 0x01;
-            /// [Set RS232 line characteristics](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L198)
-            const _FTDI_VEN_REQ_SET_DATA_CHAR: u8 = 0x02;
-            /// [Set chip flow control](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L277)
-            const _FTDI_VEN_REQ_SET_FLOW_CTRL: u8 = 0x03;
-            /// [Set modem ctrl](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L232)
-            const _FTDI_VEN_REQ_SET_MODEM_CTRL: u8 = 0x04;
-            /// [Set special event character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L365)
-            const _FTDI_VEN_REQ_SET_EVENT_CHAR: u8 = 0x06;
-            /// [Set parity error replacement character](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L382)
-            const _FTDI_VEN_REQ_SET_ERR_CHAR: u8 = 0x07;
-            /// [Set latency timer](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L324)
-            const _FTDI_VEN_REQ_SET_LAT_TIMER: u8 = 0x09;
-            /// [Set bitmode](https://github.com/lipro/libftdi/blob/master/src/ftdi.c#L1921)
-            const _FTDI_VEN_REQ_SET_BITMODE: u8 = 0x0B;
-            /// See [libftdi ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.h#L169)
-            /// This request is rejected -- EEPROM is read-only.
-            const FTDI_VEN_REQ_WR_EEPROM: u8 = 0x91;
-            /// This request is rejected -- EEPROM is read-only.
-            const FTDI_VEN_REQ_ES_EEPROM: u8 = 0x92;
             match req.request {
                 FTDI_VEN_REQ_RESET => {
                     const RESET_SIO: u16 = 0x0000;

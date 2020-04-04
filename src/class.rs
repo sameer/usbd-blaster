@@ -8,9 +8,6 @@ const RECEIVE_LINE_SIGNAL_DETECT_ACTIVE: u8 = 0b1000_0000;
 const RING_INDICATOR_ACTIVE: u8 = 0b0100_0000;
 pub const FTDI_MODEM_STA_DUMMY: [u8; 2] = [DATA_READY, RECEIVE_LINE_SIGNAL_DETECT_ACTIVE | RING_INDICATOR_ACTIVE];
 
-/// See [ftdi.h](https://github.com/lipro/libftdi/blob/master/src/ftdi.h#L75)
-pub const INTERFACE_A_INDEX: u16 = 1;
-
 pub struct BlasterClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
     pub read_ep: EndpointOut<'a, B>,
