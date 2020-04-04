@@ -20,7 +20,7 @@ For the [Arduino MKR Vidor 4000](https://www.arduino.cc/en/Guide/MKRVidor4000), 
 
 #### Arduino MKR Vidor 4000
 ```bash
-cargo build --release --target thumbv6m-none-eabi --example arduino_mkrvidor4000
+RUSTFLAGS='-C link-arg=-Tlink.x' cargo build --release --target thumbv6m-none-eabi --example arduino_mkrvidor4000
 arm-none-eabi-objcopy -O binary target/thumbv6m-none-eabi/release/usbblaster-rs target/usbblaster-rs.bin
 # Manual step: push reset button twice in quick succession to enter flash mode
 bossac -i -d -U true -i -e -w -v target/usbblaster-rs.bin -R
