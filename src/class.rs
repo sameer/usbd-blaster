@@ -43,10 +43,6 @@ impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
         const FTDI_LAT_TIMER_DUMMY: [u8; 1] = ['6' as u8];
 
         let req = xfer.request();
-        if !(req.recipient == control::Recipient::Endpoint && req.index == INTERFACE_A_INDEX)
-        {
-            return;
-        }
         if req.request_type == RequestType::Vendor {
             match req.request {
                 FTDI_VEN_REQ_RD_EEPROM => {
@@ -65,8 +61,6 @@ impl<'a, B: UsbBus> UsbClass<B> for BlasterClass<'a, B> {
                     xfer.accept_with_static(&[0u8; 2]).unwrap();
                 }
             }
-        } else {
-            xfer.reject().ok();
         }
     }
 }

@@ -13,7 +13,6 @@ pub struct Port<
     tdo: TDO,
     jtag_state: JTAGState,
     shift_count: u8,
-    shift_data: u8,
     read_en: bool,
     got_clock: bool,
 }
@@ -146,7 +145,6 @@ where
             tdo,
             jtag_state: JTAGState::Reset,
             shift_count: 0,
-            shift_data: 0,
             read_en: false,
             got_clock: false,
         }
@@ -170,10 +168,10 @@ where
                     // Swap to shift mode for 0 to 63 shifts
                     self.shift_count = d & Self::BLASTER_STA_CNT_MASK;
                     // [Record shift register content and send it to the host](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L199)
-                    if self.read_en {
-                        send_buf[*send_len] = self.shift_data;
-                        *send_len += 1;
-                    }
+                    // if self.read_en {
+                    //     send_buf[*send_len] = self.shift_data;
+                    //     *send_len += 1;
+                    // }
                 } else {
                     self.set_state(d)?;
                     if self.read_en {
@@ -184,20 +182,20 @@ where
             } else {
                 // shift-mode
                 if self.read_en {
-                    self.shift_data = d;
-                    self.shift_io()?;
-                    send_buf[*send_len] = self.shift_data;
+                    send_buf[*send_len] = self.shift_io(d)?;
                     *send_len += 1;
                 } else {
-                    self.shift_data = d;
-                    self.shift_out()?;
+                    self.shift_out(d)?;
                 }
                 self.shift_count -= 1;
             }
             i += 1;
         }
         if i != 0 {
-            recv_buf.copy_within(i..*recv_len, 0);
+            for j in 0..(*recv_len - i) {
+                recv_buf[j] = recv_buf[j + i];
+            }
+            *recv_len -= i;
         }
         Ok(())
     }
@@ -263,35 +261,35 @@ where
         Ok(())
     }
 
-    fn shift_out(&mut self) -> Result<(), E> {
+    fn shift_out(&mut self, mut shift_data: u8) -> Result<(), E> {
         for _i in 0..8 {
-            if self.shift_data & 1 != 0 {
+            if shift_data & 1 != 0 {
                 self.tdi.set_high()?;
             } else {
                 self.tdi.set_low()?;
             }
             self.tck.set_high()?;
-            self.shift_data = self.shift_data.rotate_right(1);
+            shift_data >>= 1;
             self.tck.set_low()?;
         }
         Ok(())
     }
 
-    fn shift_io(&mut self) -> Result<(), E> {
+    fn shift_io(&mut self, mut shift_data: u8) -> Result<u8, E> {
         for _i in 0..8 {
-            if self.shift_data & 1 != 0 {
+            if shift_data & 1 != 0 {
                 self.tdi.set_high()?;
             } else {
                 self.tdi.set_low()?;
             }
             let din = self.tdo.is_high()?;
             self.tck.set_high()?;
-            self.shift_data = self.shift_data.rotate_right(1);
+            shift_data >>= 1;
             if din {
-                self.shift_data |= 0b1000_0000u8;
+                shift_data |= 0b1000_0000u8;
             }
             self.tck.set_low()?;
         }
-        Ok(())
+        Ok(shift_data)
     }
 }

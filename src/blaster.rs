@@ -71,10 +71,11 @@ impl<
     /// Otherwise, [a BSOD could occur on Windows](https://github.com/mithro/ixo-usb-jtag/blob/master/usbjtag.c#L212)
     /// A safe default for the heartbeat seems to be true all the time. This will output the modem status whenever the host reads the device.
     pub fn write(&mut self, heartbeat: bool) -> usb_device::Result<usize> {
-        if self.send_len != 0 && !heartbeat {
+        if self.send_len == 0 && !heartbeat {
             return Err(UsbError::WouldBlock);
         }
-        self.send_buffer[0..2].copy_from_slice(&FTDI_MODEM_STA_DUMMY);
+        self.send_buffer[0] = FTDI_MODEM_STA_DUMMY[0];
+        self.send_buffer[1] = FTDI_MODEM_STA_DUMMY[1];
         let res = self.class.write(&self.send_buffer[..self.send_len + 2]);
         if res.is_ok() {
             let amount = *res.as_ref().unwrap();
@@ -84,9 +85,10 @@ impl<
                     panic!("Cannot recover from half-sent status");
                 }
             } else {
-                self.send_buffer
-                    .copy_within((amount)..(self.send_len + 2), 2);
                 let actual_amount = amount - 2;
+                for i in 0..(self.send_len - actual_amount) {
+                    self.send_buffer[i + 2] = self.send_buffer[i + 2 + actual_amount];
+                }
                 self.send_len -= actual_amount;
             }
         }
@@ -138,9 +140,6 @@ where
 
     fn control_out(&mut self, xfer: ControlOut<B>) {
         let req = xfer.request();
-        if !(req.recipient == control::Recipient::Endpoint && req.index == INTERFACE_A_INDEX) {
-            return;
-        }
 
         if req.request_type == RequestType::Vendor {
             /// See [Linux kernel ftdi_sio.h](https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ftdi_sio.h#L74)
