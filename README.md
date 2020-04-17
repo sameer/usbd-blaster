@@ -1,5 +1,9 @@
 # USB Blaster for Embedded Devices
 
+[![Latest version](https://img.shields.io/crates/v/usbd-blaster.svg)](https://crates.io/crates/usbd-blaster)
+[![Documentation](https://docs.rs/usbd-blaster/badge.svg)](https://docs.rs/usbd-blaster)
+![License](https://img.shields.io/crates/l/usbd-blaster.svg)
+
 ## What is this?
 
 A crate for emulating a USB Blaster device, written in [Rust](https://www.rust-lang.org/).
